@@ -230,10 +230,14 @@ def test_sender_time_is_not_replaced_by_local_receive_time(tmp_path: Path) -> No
 
 
 def test_fixture_copy_matches_the_contract_example() -> None:
-    source = Path(r"C:\Users\Ayush\Desktop\ground\contracts\examples\drone-observation.json")
-    copied = Path(__file__).resolve().parents[3] / "fixtures" / "ground" / "g13"
-    assert (copied / "drone-observation.json").read_bytes() == source.read_bytes()
-    capability = Path(r"C:\Users\Ayush\Desktop\ground\contracts\examples\drone-capabilities.json")
-    assert (copied / "drone-capabilities.json").read_bytes() == capability.read_bytes()
+    root = Path(__file__).resolve().parents[3]
+    examples = root / "contracts" / "examples"
+    copied = root / "fixtures" / "ground" / "g13"
+    assert (copied / "drone-observation.json").read_bytes() == (
+        examples / "drone-observation.json"
+    ).read_bytes()
+    assert (copied / "drone-capabilities.json").read_bytes() == (
+        examples / "drone-capabilities.json"
+    ).read_bytes()
     unused = copy.deepcopy(load("drone-observation.json"))
     assert unused["kind"] == "drone.observation"

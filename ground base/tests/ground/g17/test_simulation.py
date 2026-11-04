@@ -49,8 +49,6 @@ def test_contract_examples_are_copied_into_the_task_fixtures() -> None:
         "drone-observation.json",
     ):
         copied = json.loads((directory / name).read_text(encoding="utf-8"))
-        source = Path(r"C:\Users\Ayush\Desktop\ground\contracts\examples") / name
-        if source.is_file():
-            assert copied == json.loads(source.read_text(encoding="utf-8"))
-        else:
-            assert copied["simulated"] is True
+        source = repo_root() / "contracts" / "examples" / name
+        assert source.is_file()
+        assert copied == json.loads(source.read_text(encoding="utf-8"))
