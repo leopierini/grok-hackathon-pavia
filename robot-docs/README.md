@@ -22,6 +22,16 @@ Official Unitree docs (support.unitree.com/home/en/developer) block scripted dow
 
 The Go1 has no easy two-way audio or camera from a laptop, so prefer the Go2.
 
+## 🚁 Drone: DJI/Ryze Tello EDU (Global), confirmed on site (made 2020/12)
+| Resource | What |
+|---|---|
+| `tello/Tello SDK 2.0 User Guide.pdf` | Official command reference: UDP 8889 for commands, 8890 for state, 11111 for video |
+| `tello/Tello Mission Pad User Guide.pdf` | Mission pads give **indoor localization** (EDU only, needs good light) |
+| `sdks/DJITelloPy` | Python lib `pip install djitellopy`: `Tello().connect()`, `takeoff()`, `go_xyz_speed_mid()`, `get_frame_read()`, `enable_mission_pads()` · examples in `examples/` |
+
+Key commands: `command`, `takeoff`, `land`, `emergency`, `streamon`, `go x y z speed [mid]` (move relative to a mission pad), `mon` (enable pad detection), `mdirection 0|1|2` (pad camera: down, forward, both), `rc a b c d`, `ap ssid pass` (**station mode**: joins a router; the SDK says swarm, community reports video doesn't work in this mode).
+⚠️ **Network:** for video, the laptop must join the Tello's own Wi-Fi, so it needs a **second interface** (USB Wi-Fi or Ethernet) or a second laptop for internet, Grok and the dog. Flight time is about 13 min per battery.
+
 ## 🦾 Cobots
 | Arm | Repo | Docs |
 |---|---|---|

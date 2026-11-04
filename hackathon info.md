@@ -73,7 +73,7 @@ Referenced in the tracks: the official **`xai-sdk-python`** SDK, plus the xAI ex
 - A **flight simulator** (three screens on a motion platform)
 - **Cobots / robotic arms** (exact models below; the tracks refer to "Arm 1/2/3")
 - A **driving simulator** (seat and steering wheel)
-- Also: **a few drones**
+- Also: **a few drones**. Confirmed model: **Tello EDU** (see below)
 - Cameras ("camera 1", "camera 2"), and smartphones used as cameras
 
 "Real access, not a demo behind a rope." Museum staff handle the hardware and support builders.
@@ -89,6 +89,8 @@ Referenced in the tracks: the official **`xai-sdk-python`** SDK, plus the xAI ex
 | UR5e | Universal Robots | Same as UR3e |
 | CS63 | Elite Robots | [Elite_Robots_CS_SDK](https://github.com/Elite-Robots/Elite_Robots_CS_SDK) · [Elite_Robots_CS_ROS2_Driver](https://github.com/Elite-Robots/Elite_Robots_CS_ROS2_Driver) |
 | CS66 | Elite Robots | Same as CS63 |
+
+**Drone: DJI/Ryze Tello EDU (Global)**, confirmed on site by the team (box shows manufacture 2020/12). It has mission pads for indoor localization and the SDK 2.0 (`djitellopy`). Docs are in `robot-docs/tello/`. How many units and batteries the museum has is still to be confirmed.
 
 **Robot dogs (2), both Unitree:**
 | Model | SDK to start from |
