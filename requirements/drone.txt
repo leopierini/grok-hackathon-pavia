@@ -1,0 +1,2 @@
+# FakeDrone uses the standard library only.
+# The real Tello SDK is not required for this build.
