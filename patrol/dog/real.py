@@ -2,7 +2,12 @@
 
 Safety design
 - connect() never moves, stands or changes settings. It opens WebRTC, subscribes
-  to state topics and turns on the session video stream.
+  to state topics and turns on the session video stream. It also subscribes to the
+  LiDAR voxel-map topic (native decoder) and sets the WebRTC transport flag
+  "disable traffic saving", which lasts for this session only and is not a dog
+  setting. connect() never publishes the LiDAR switch: only lidar_switch_on() does,
+  on an explicit operator action (it only powers the sensor, never moves the dog).
+  Config `lidar_enabled: false` skips all of it (no decoder switch, no flag, no topic).
 - Every vendor request has a timeout. A timed-out motion command is never retried:
   the adapter sends StopMove, locks itself and reports the failure.
 - halt() never waits behind a route: it latches a flag that the route loop checks
@@ -12,7 +17,16 @@ Safety design
 - Unknown state is reported as None, never as a successful default.
 - Movement uses the sport `Move` velocity command, re-sent at `move_rate_hz`.
   Velocities are clamped to hard caps below whatever the route file says.
+- Joystick "sticks" mode instead publishes simulated remote-controller sticks on
+  rt/wirelesscontroller (send_sticks, clamped to STICK_MAX), the path the dog's own obstacle
+  avoidance filters. Runtime input only. Every stop path (halt, rest, stop_move) zeroes the
+  sticks first (and again for ~0.2 s) once sticks were used on this adapter.
 - Nothing here writes firmware, switches motion modes, or touches the system.
+- Obstacle avoidance is read-only: prepare() never switches it on. Not confirmed on => motion refused.
+- Audio (extras): the speaker streams PCM over the session's WebRTC audio track
+  (nothing is uploaded or stored on the dog); the mic channel is switched on only
+  while someone is subscribed (listen / record) and off again after. Volume is the
+  dog's VUI setting (0..10, api 1004 read / 1003 set). Audio never affects motion.
 - Safety envelope (on by default; config `safety_envelope_enabled`, or
   set_safety_envelope(), which refuses to turn it off while moving): every sport-state message is checked
   against a fence around "home", a sustained speed limit, a sustained tilt limit and
@@ -29,6 +43,7 @@ import json
 import math
 import os
 import time
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -41,6 +56,7 @@ from patrol.contract import (
     RunContext,
     Zone,
 )
+from patrol.dog import lidar as lidar_mod
 
 ZONES = ("entrance", "room_2", "display")
 
@@ -59,17 +75,27 @@ STANDING_MIN_HEIGHT_M = 0.25
 STATIONARY_MAX_SPEED = 0.05  # m/s
 STATIONARY_MAX_YAW = 0.10    # rad/s
 STOP_VERIFY_S = 2.0
+STANDDOWN_BUSY_CODE = 4201  # StandDown reply seen on the real dog (2026-11-04 16:24, 17:11, 17:13) while it
+                            # DID lie down: treated as accepted/busy, confirmed via state, never re-sent
 
 # Go2 sportmodestate.mode values that mean "on its feet" (0 idle/default stand,
 # 1 balance stand, 2 pose, 3 locomotion). Everything else (lie down, damping,
 # sit, recovery...) counts as not standing.
 STANDING_MODES = {0, 1, 2, 3}
+# Modes that confirm a StandDown arrived: 5 lie down, 7 damping (never sent by us, but the body
+# is down). Real dog 2026-11-04 19:31-19:35: body_height did NOT drop below the standing minimum
+# after StandDown (8 s, never confirmed) while the next connect read standing: false (= the mode).
+LYING_MODES = {5, 7}
 
 SPORT_API = {"StopMove": 1003, "StandUp": 1004, "BalanceStand": 1002, "Move": 1008,
              "StandDown": 1005}
 # Never used: "Damp" (1001) = motors go limp and the dog drops. Emergency rest uses StandDown.
-AVOID_API = {"SWITCH_SET": 1001, "SWITCH_GET": 1002}
-VUI_API = {"SET_BRIGHTNESS": 1005, "GET_BRIGHTNESS": 1006}   # head light, 0..10
+# Obstacle avoidance is READ-ONLY: only the get call (1002). We never send the set call (1001):
+# if avoidance is not confirmed on, motion is refused and staff decide.
+AVOID_API = {"SWITCH_GET": 1002}
+AVOID_REFUSED = "avoidance not confirmed on — motion refused; ask staff"
+VUI_API = {"SET_BRIGHTNESS": 1005, "GET_BRIGHTNESS": 1006,   # head light, 0..10
+           "SET_VOLUME": 1003, "GET_VOLUME": 1004}           # speaker volume, 0..10
 
 # Safety envelope defaults (config keys of the same name override them).
 SAFETY_DEFAULTS = {
@@ -81,7 +107,17 @@ SAFETY_DEFAULTS = {
 SPEED_SUSTAIN_S = 0.3        # over-speed must last this long (gait peaks are short)
 TILT_SUSTAIN_S = 0.2
 MOTION_RECENT_S = 1.0        # a Move sent within this window counts as "moving" for the fence
+LIDAR_TRAFFIC_TIMEOUT_S = 3.0   # disableTrafficSaving reply (session-only transport flag)
+LIDAR_RATE_WINDOW = 20          # arrival times kept for the rate estimate
+LIDAR_RATE_STALE_S = 3.0        # no scan for this long => rate 0
+LIDAR_LYING_MSG = "LiDAR streams only while the dog is standing — press Stand up"
 ODOM_STEP_M = 0.02           # route travel is accumulated in steps >= this (filters odometry jitter)
+# Remote-controller sticks (rt/wirelesscontroller, the path the dog's obstacle avoidance filters).
+# Speed per stick unit depends on the dog's speed level (unknown): keep it small; the
+# measured-speed trip (max_speed_mps) is the backstop.
+STICK_MAX = 0.3
+ZERO_STICKS_REPEATS = 4      # after the immediate zero: 4 more, ZERO_STICKS_GAP_S apart (~0.2 s)
+ZERO_STICKS_GAP_S = 0.05
 
 
 def _utc_now_iso() -> str:
@@ -116,6 +152,19 @@ def _parse_home(v: Any, where: str) -> tuple[float, float]:
     if xy is None or any(isinstance(c, bool) for c in list(v)[:2]):
         raise AdapterError("invalid_input", f"{where} must be [x, y] in metres, got {v!r}")
     return xy
+
+
+def av_errors() -> type[BaseException]:
+    try:
+        import av
+        return av.error.FFmpegError
+    except Exception:  # pragma: no cover
+        return OSError
+
+
+def subprocess_errors() -> type[BaseException]:
+    import subprocess
+    return subprocess.SubprocessError
 
 
 def _clamp(v: float, cap: float) -> float:
@@ -159,12 +208,33 @@ class RealDog:
         self._multi: dict | None = None
         self._multi_t = 0.0
         self._low: dict | None = None
+        # ---- LiDAR (voxel map stream, world frame)
+        self._lidar: lidar_mod.LidarScan | None = None
+        self._lidar_msgs = 0
+        self._lidar_bad = 0
+        self._lidar_times: deque = deque(maxlen=LIDAR_RATE_WINDOW)
+        self._lidar_error: str | None = None   # connect-time note ("warning: ..." = still subscribed)
+        self._lidar_switch_sent = False
+        lidar_enabled = config.get("lidar_enabled", True)
+        if not isinstance(lidar_enabled, bool):
+            raise AdapterError("invalid_input", f"config.lidar_enabled must be true/false, got {lidar_enabled!r}")
+        self._lidar_enabled = lidar_enabled
+
         self._frame: Any = None            # numpy BGR image
         self._frame_t = 0.0                # monotonic receive time
         self._frame_utc: str | None = None
         self._video_task_running = False
         self._closed = False
         self._loop: asyncio.AbstractEventLoop | None = None
+
+        # ---- audio (lazy: patrol.dog.audio is imported on first use)
+        self._speaker: Any = None          # audio.SpeakerTrack once attached
+        self._speaker_sender: Any = None
+        self._speaker_transceiver: Any = None
+        self._mic: Any = None              # audio.MicTap, created at connect
+        self._mic_on = False
+        self._mic_subs: set = set()
+        self._pcm_conv: dict = {}          # (rate, channels) -> PcmConverter for play_pcm streams
 
         # ---- safety envelope (on by default)
         enabled = config.get("safety_envelope_enabled", True)
@@ -195,6 +265,8 @@ class RealDog:
         self._speed_since: float | None = None
         self._tilt_since: float | None = None
         self._last_move_cmd_t = 0.0
+        self._sticks_used = False          # a stick input was published on this adapter
+        self._zero_task: asyncio.Task | None = None
         self._route_track: dict | None = None
         self._envelope_error: str | None = None
 
@@ -223,6 +295,12 @@ class RealDog:
         ps.subscribe(topics["LOW_STATE"], self._on_low)
         conn.video.add_track_callback(self._on_track)
         conn.video.switchVideoChannel(True)
+        audio_ch = getattr(conn, "audio", None)
+        if audio_ch is not None:            # mic frames arrive only after mic_subscribe()
+            from patrol.dog import audio as _audio
+            self._mic = _audio.MicTap()
+            audio_ch.add_track_callback(self._on_audio_frame)
+        await self._lidar_subscribe(conn, topics)
 
         # Wait briefly for the first fresh state so the status is meaningful.
         await self._wait_for(lambda: self._sport is not None and self._multi is not None
@@ -240,10 +318,8 @@ class RealDog:
             await self._sleep_checked(2.0, ctx)
             await self._sport_request("BalanceStand")
             await self._sleep_checked(1.5, ctx)
-        enabled = await self.get_avoidance()
-        if enabled is not True:
-            await self._avoid_request("SWITCH_SET", {"enable": True})
-            await asyncio.sleep(0.5)
+        # Avoidance is read-only: never switched on here. If it is not confirmed on, the status
+        # says so (avoidance_enabled None/False) and drive/send_sticks/routes refuse.
         st = await self.get_status()
         return st
 
@@ -319,6 +395,7 @@ class RealDog:
             self._faulted = "halted"
         if not self._connected:
             return
+        self._zero_sticks_first()
         # Send StopMove a few times without waiting on responses, then one awaited.
         for _ in range(3):
             self._sport_fire("StopMove", priority=True)
@@ -343,18 +420,37 @@ class RealDog:
             report["error"] = "not connected"
             return report
         t0 = time.monotonic()
+        self._zero_sticks_first()
         for _ in range(3):
             self._sport_fire("StopMove", priority=True)
             await asyncio.sleep(0.05)
         still = await self._wait_for(lambda: self._is_stationary_now(), 1.0)
         report["stationary_before_standdown"] = still
+        t_sd = time.monotonic()
         try:
-            await self._sport_request("StandDown", priority=True, lock_on_timeout=False)
-            report["standdown_sent"] = True
+            resp = await self._sport_request("StandDown", priority=True, lock_on_timeout=False,
+                                             accept_codes=(STANDDOWN_BUSY_CODE,))
+            if self._resp_code(resp) == STANDDOWN_BUSY_CODE:
+                # Accepted/busy: no second StandDown. Confirm "lying down" from state within the
+                # same posture wait; only if that fails is it reported as not arrived.
+                report["standdown_code"] = STANDDOWN_BUSY_CODE
+                wait_s = max(POSTURE_TIMEOUT_S, self._command_timeout_s)
+                lying = await self._wait_for(self._is_lying_now,
+                                             max(0.0, wait_s - (time.monotonic() - t_sd)))
+                report["lying_confirmed"] = lying
+                if lying:
+                    report["standdown_sent"] = True
+                else:
+                    report["standdown_sent"] = f"code {STANDDOWN_BUSY_CODE}, lying down not confirmed"
+                    report["error"] = (f"StandDown returned code {STANDDOWN_BUSY_CODE} and the state did not "
+                                       f"show the dog lying down within {wait_s:g} s")
+            else:
+                report["standdown_sent"] = True
         except AdapterError as e:
             self._sport_fire("StandDown", priority=True)   # one unawaited fallback send
             report["standdown_sent"] = "fired (no reply)"
             report["error"] = str(e)
+        report["posture_after"] = self._posture_raw()
         report["rest_call_s"] = round(time.monotonic() - t0, 3)
         return report
 
@@ -368,6 +464,12 @@ class RealDog:
             except Exception:
                 pass
         try:
+            # Sticks first: a held stick that the dog's own avoidance blocks reads as stationary,
+            # so the halt below would skip it. No-op unless sticks were used on this adapter.
+            self._zero_sticks_first()
+        except Exception:
+            pass
+        try:
             st = await self.get_status()
             if st.stationary is not True:
                 await self.halt()
@@ -377,6 +479,7 @@ class RealDog:
             self._conn.video.switchVideoChannel(False)
         except Exception:
             pass
+        self._audio_shutdown()
         try:
             await asyncio.wait_for(self._conn.disconnect(), 5.0)
         except Exception:
@@ -386,6 +489,110 @@ class RealDog:
         self._conn = None
 
     # ------------------------------------------------- extras (not in contract)
+
+    async def _lidar_subscribe(self, conn, topics: dict) -> None:
+        """Receive the LiDAR stream. Never fatal, never publishes the sensor switch.
+        Without the native decoder we do not subscribe at all: the vendor's default libvoxel
+        decoder would decode every LiDAR message on the event loop (and we would reject them)."""
+        if not self._lidar_enabled:
+            return                       # config lidar_enabled: false -> no decoder, no traffic flag, no topic
+        dc = conn.datachannel
+        set_decoder = getattr(dc, "set_decoder", None)
+        if not callable(set_decoder):
+            self._lidar_error = ("LiDAR not subscribed: this vendor library has no set_decoder "
+                                 "(the default decoder would load the event loop)")
+            return
+        try:
+            set_decoder(decoder_type="native")
+        except Exception as e:
+            self._lidar_error = f"LiDAR not subscribed: set_decoder failed ({type(e).__name__}: {e})"
+            return
+        try:
+            ok = await asyncio.wait_for(dc.disableTrafficSaving(True), LIDAR_TRAFFIC_TIMEOUT_S)
+            if ok is False:
+                self._lidar_error = "warning: disableTrafficSaving was refused by the dog"
+        except asyncio.TimeoutError:
+            self._lidar_error = f"warning: disableTrafficSaving: no reply in {LIDAR_TRAFFIC_TIMEOUT_S:g} s"
+        except Exception as e:
+            self._lidar_error = f"warning: disableTrafficSaving: {type(e).__name__}: {e}"
+        try:
+            dc.pub_sub.subscribe(topics["ULIDAR_ARRAY"], self._on_lidar)
+        except Exception as e:
+            self._lidar_error = f"LiDAR not subscribed: subscribe: {type(e).__name__}: {e}"
+
+    @property
+    def lidar_enabled(self) -> bool:
+        return self._lidar_enabled
+
+    def latest_lidar(self) -> "lidar_mod.LidarScan | None":
+        return self._lidar
+
+    def lidar_pose(self) -> "lidar_mod.Pose | None":
+        """(x, y, yaw, ground_z) from fresh sport state, or None. ground_z None if height unknown."""
+        s = self._sport
+        if not self._sport_fresh() or not isinstance(s, Mapping):
+            return None
+        try:
+            pos = s["position"]
+            yaw = float(s["imu_state"]["rpy"][2])
+            x, y = float(pos[0]), float(pos[1])
+            if not all(math.isfinite(v) for v in (x, y, yaw)):
+                return None
+        except Exception:
+            return None
+        ground = None
+        try:
+            g = float(pos[2]) - float(s["body_height"])
+            if math.isfinite(g):
+                ground = g
+        except Exception:
+            pass
+        return (x, y, yaw, ground)
+
+    def lidar_view(self) -> dict:
+        """The frame the joystick panel draws (body frame, centimetres). Safe off the loop thread."""
+        return lidar_mod.build_view(self.latest_lidar(), self.lidar_pose(), time.monotonic())
+
+    def lidar_status(self) -> dict:
+        scan, now = self._lidar, time.monotonic()
+        times = list(self._lidar_times)
+        rate = None
+        if len(times) >= 2 and times[-1] > times[0]:
+            rate = 0.0 if now - times[-1] > LIDAR_RATE_STALE_S else round((len(times) - 1) / (times[-1] - times[0]), 2)
+        error = self._lidar_error        # connect-time note; stream problems are derived (clear on a valid scan)
+        if self._lidar_bad and self._lidar_msgs == 0:
+            error = f"{self._lidar_bad} LiDAR message(s) arrived but could not be decoded"
+        return {
+            "enabled": self._lidar_enabled,
+            "msgs": self._lidar_msgs,
+            "bad": self._lidar_bad,
+            "age_s": round(max(0.0, now - scan.t), 2) if scan is not None else None,
+            "points": len(scan.points) if scan is not None else 0,
+            "rate_hz": rate,
+            "frame_id": scan.frame_id if scan is not None else None,
+            "switch_sent": self._lidar_switch_sent,
+            "error": error,
+        }
+
+    async def lidar_switch_on(self) -> dict:
+        """Power the LiDAR sensor on (explicit operator action; connect() never does this).
+        Not a motion command, so it is allowed while the motion lock is set. Only while the dog
+        is standing (confirmed): lying down, the LiDAR does not stream anyway (real dog)."""
+        if not self._lidar_enabled:
+            raise AdapterError("unsupported", "LiDAR disabled by config (lidar_enabled: false)")
+        self._require_connected()
+        st = await self.get_status()
+        if st.standing is not True:
+            raise AdapterError("unsafe_state", f"{LIDAR_LYING_MSG} (standing: {st.standing})")
+        ps = self._conn.datachannel.pub_sub
+        if getattr(getattr(ps, "channel", None), "readyState", "open") != "open":
+            raise AdapterError("not_connected", "data channel is not open")
+        try:
+            ps.publish_without_callback(self._topics()["ULIDAR_SWITCH"], "on")
+        except Exception as e:
+            raise AdapterError("device_error", f"LiDAR switch failed: {type(e).__name__}: {e}") from e
+        self._lidar_switch_sent = True
+        return {"utc": _utc_now_iso()}
 
     async def get_avoidance(self) -> bool | None:
         """Ask the obstacle-avoid service directly. None if unknown."""
@@ -469,11 +676,113 @@ class RealDog:
         no reply: then the adapter locks and fires one unawaited StopMove."""
         if not self._connected:
             return
+        self._zero_sticks_first()
         try:
             await self._sport_request("StopMove", priority=True, lock_on_timeout=False)
         except AdapterError as e:
             self._faulted = self._faulted or f"StopMove failed: {e.code}"
             self._sport_fire("StopMove", priority=True)
+
+    async def send_sticks(self, lx: float, ly: float, rx: float, ry: float = 0.0) -> dict:
+        """Publish ONE simulated remote-controller stick input on rt/wirelesscontroller (the
+        path the dog's own obstacle avoidance filters; vendor example obstacles_avoid.py).
+        Runtime control only: no setting is changed. Same preconditions as drive(); each
+        value clamped to +-STICK_MAX. lx + = strafe right, ly + = forward, rx + = turn RIGHT
+        (rx measured on the real dog 2026-11-04; lx/ly from the vendor example, not measured). A non-zero send counts as a motion command for the fence.
+        A failed publish locks the adapter, zeroes the sticks and fires StopMove."""
+        self._require_connected()
+        self._require_motion_allowed()
+        vals = (lx, ly, rx, ry)
+        try:
+            ok = all(math.isfinite(float(v)) for v in vals)
+        except (TypeError, ValueError):
+            ok = False
+        if not ok:
+            raise AdapterError("invalid_input", f"non-finite stick value {vals!r}")
+        if self._route_lock.locked():
+            raise AdapterError("unsafe_state", "a route is running")
+        st = await self.get_status()
+        if st.standing is not True or st.avoidance_enabled is not True:
+            raise AdapterError("unsafe_state", f"refusing to drive with status {st}")
+        self._require_envelope_ok()
+        data = {"lx": _clamp(lx, STICK_MAX), "ly": _clamp(ly, STICK_MAX), "rx": _clamp(rx, STICK_MAX),
+                "ry": _clamp(ry, STICK_MAX), "keys": 0}
+        self._require_motion_allowed()      # re-check right before sending
+        ps = self._conn.datachannel.pub_sub
+        try:
+            if getattr(getattr(ps, "channel", None), "readyState", "open") != "open":
+                raise AdapterError("not_connected", "data channel is not open")
+            if any(data[k] for k in ("lx", "ly", "rx", "ry")):
+                self._sticks_used = True
+                self._last_move_cmd_t = time.monotonic()
+            ps.publish_without_callback(self._topics()["WIRELESS_CONTROLLER"], data)
+        except AdapterError as e:
+            self._stick_fault(e.code)
+            raise
+        except Exception as e:
+            self._stick_fault("device_error")
+            raise AdapterError("device_error", f"stick publish failed: {type(e).__name__}: {e}") from e
+        return data
+
+    def _stick_fault(self, code: str) -> None:
+        self._faulted = self._faulted or f"drive error: {code}"
+        self._zero_sticks_first()
+        self._sport_fire("StopMove", priority=True)
+
+    async def zero_sticks(self) -> dict:
+        """Publish zero sticks now and a few more times over ~0.2 s. A stop: allowed even
+        when motion is locked. Never raises. Returns {"sent", "dropped", "failed"} counts:
+        "dropped" = data channel not open (the vendor would drop it silently)."""
+        counts = {"sent": 0, "dropped": 0, "failed": 0}
+        counts[self._publish_zero_sticks()] += 1
+        await self._repeat_zero_sticks(counts)
+        return counts
+
+    def mark_sticks_used(self) -> None:
+        """Sticks were used on an earlier adapter (or the joystick is in sticks mode): this
+        adapter's stop paths zero the sticks too. Sends nothing."""
+        self._sticks_used = True
+
+    def _publish_zero_sticks(self) -> str:
+        """One zero-stick publish: "sent", "dropped" (no connection / data channel not open)
+        or "failed" (the publish raised). Never raises."""
+        try:
+            if self._conn is None:
+                return "dropped"
+            ps = self._conn.datachannel.pub_sub
+            if getattr(getattr(ps, "channel", None), "readyState", "open") != "open":
+                return "dropped"
+            ps.publish_without_callback(
+                self._topics()["WIRELESS_CONTROLLER"], {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "keys": 0})
+            return "sent"
+        except Exception:
+            return "failed"
+
+    async def _repeat_zero_sticks(self, counts: dict | None = None) -> None:
+        for _ in range(ZERO_STICKS_REPEATS):
+            await asyncio.sleep(ZERO_STICKS_GAP_S)
+            r = self._publish_zero_sticks()
+            if counts is not None:
+                counts[r] += 1
+
+    def _zero_sticks_first(self) -> None:
+        """Stop paths: if sticks were used on this adapter, zero them right now (no await, so
+        StopMove is not delayed) and repeat in the background for ~0.2 s. Never raises."""
+        if not self._sticks_used:
+            return
+        self._publish_zero_sticks()
+        try:
+            if self._zero_task is None or self._zero_task.done():
+                self._zero_task = asyncio.get_running_loop().create_task(self._repeat_zero_sticks())
+        except Exception:
+            pass
+
+    def latch_lock(self, reason: str) -> None:
+        """Latch the motion lock without sending anything (e.g. a STOP that happened on an
+        earlier connection). Like every lock, only a new adapter (Re-arm) clears it."""
+        self._halted.set()
+        if self._faulted is None:
+            self._faulted = reason
 
     def motion_lock(self) -> str | None:
         """Why motion is refused (None = allowed). Latched until the adapter is recreated."""
@@ -514,6 +823,233 @@ class RealDog:
         if code not in (0, None):
             raise AdapterError("device_error", f"set brightness returned code {code}")
         return lvl_i
+
+    # ------------------------------------------------------------ audio (extras)
+
+    async def get_volume(self) -> int | None:
+        """Speaker volume 0..10 (VUI api 1004). None if unknown."""
+        self._require_connected()
+        resp = await self._request(self._topics()["VUI"], {"api_id": VUI_API["GET_VOLUME"]},
+                                   lock_on_timeout=False)
+        try:
+            return int(json.loads(resp["data"]["data"])["volume"])
+        except Exception:
+            return None
+
+    async def set_volume(self, level: float) -> int:
+        """Set speaker volume (VUI api 1003), clamped to 0..10. Returns the level sent."""
+        self._require_connected()
+        try:
+            lvl = float(level)
+        except (TypeError, ValueError) as e:
+            raise AdapterError("invalid_input", f"bad volume {level!r}") from e
+        if not math.isfinite(lvl):
+            raise AdapterError("invalid_input", f"bad volume {level!r}")
+        lvl_i = int(max(0, min(10, round(lvl))))
+        resp = await self._request(self._topics()["VUI"],
+                                   {"api_id": VUI_API["SET_VOLUME"], "parameter": {"volume": lvl_i}},
+                                   lock_on_timeout=False)
+        code = self._resp_code(resp)
+        if code not in (0, None):
+            raise AdapterError("device_error", f"set volume returned code {code}")
+        return lvl_i
+
+    def volume_readback(self) -> int | None:
+        """Volume as last reported by the dog's own state stream (multiplestate, ~1 Hz)."""
+        v = (self._multi or {}).get("volume")
+        if time.monotonic() - self._multi_t > 5.0:
+            return None
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return None
+
+    def play_pcm(self, pcm: bytes, rate: int = 48000, channels: int = 1, *,
+                 interrupt: bool = False, max_lag_s: float | None = None) -> float:
+        """Queue s16 PCM on the dog's speaker (e.g. a Grok Voice / TTS stream, chunk by
+        chunk). Returns seconds queued. `interrupt` drops what is still queued first.
+        `max_lag_s` (live talk) keeps the queue at most that long by dropping old audio."""
+        sp = self._ensure_speaker()
+        from patrol.dog import audio as _audio
+        key = (rate, channels)
+        try:
+            conv = self._pcm_conv.get(key)
+            if conv is None:
+                conv = self._pcm_conv[key] = _audio.PcmConverter(rate, channels)
+            data = conv.convert(pcm)
+        except (ValueError, TypeError) as e:
+            raise AdapterError("invalid_input", f"bad PCM: {e}") from e
+        if interrupt:
+            sp.clear()
+        try:
+            return sp.enqueue(data, max_lag_s=max_lag_s)
+        except OverflowError as e:
+            raise AdapterError("invalid_input", str(e)) from e
+
+    def play_chime(self, *, interrupt: bool = True) -> float:
+        """Short two-tone test sound. Returns its length in seconds."""
+        from patrol.dog import audio as _audio
+        return self._queue_pcm48(_audio.chime_pcm(), interrupt)
+
+    async def play_audio_file(self, path: str | os.PathLike, *, interrupt: bool = True) -> float:
+        """Decode an audio file (wav/mp3/aiff/...) on a worker thread and play it.
+        Returns its length in seconds. Does not wait for playback to finish."""
+        self._ensure_speaker()
+        from patrol.dog import audio as _audio
+        try:
+            pcm = await asyncio.to_thread(_audio.decode_file, path)
+        except (OSError, ValueError, av_errors()) as e:
+            raise AdapterError("invalid_input", f"cannot play {path}: {e}") from e
+        return self._queue_pcm48(pcm, interrupt)
+
+    async def say(self, text: str, voice: str = "Alice", *, interrupt: bool = True) -> float:
+        """Offline TTS test with macOS `say` (voice "Alice" = Italian, "Samantha" = English).
+        A stand-in for Grok TTS. Returns the speech length in seconds."""
+        self._ensure_speaker()
+        from patrol.dog import audio as _audio
+        try:
+            pcm = await asyncio.to_thread(_audio.tts_macos, text, voice)
+        except ValueError as e:
+            raise AdapterError("invalid_input", str(e)) from e
+        except (RuntimeError, OSError, subprocess_errors()) as e:
+            raise AdapterError("unsupported", str(e)) from e
+        return self._queue_pcm48(pcm, interrupt)
+
+    def stop_audio(self) -> None:
+        """Drop everything still queued for the speaker. Never raises."""
+        sp = self._speaker
+        if sp is not None:
+            sp.clear()
+        for c in self._pcm_conv.values():
+            c.flush()
+        self._pcm_conv.clear()
+
+    async def wait_audio_done(self, timeout: float = 60.0) -> bool:
+        """True once the speaker queue is empty (playback finished or stopped)."""
+        return await self._wait_for(lambda: self._speaker is None or not self._speaker.active, timeout)
+
+    def speaker_status(self) -> dict:
+        sp = self._speaker
+        tr = self._speaker_transceiver
+        return {
+            "attached": sp is not None,
+            "playing": bool(sp is not None and sp.active),
+            "queued_s": round(sp.buffered_s, 2) if sp is not None else 0.0,
+            "level_dbfs": sp.level_dbfs() if sp is not None else None,
+            "audio_sent_s": round(sp.audio_frames_sent * 0.02, 1) if sp is not None else 0.0,
+            "direction": getattr(tr, "currentDirection", None),
+        }
+
+    def mic_subscribe(self, rate: int = 48000, max_chunks: int = 500) -> asyncio.Queue:
+        """Queue of the dog's mic audio as mono s16 chunks (~20 ms) at `rate`.
+        The first subscriber switches the mic channel on. Call mic_unsubscribe() when done."""
+        self._require_connected()
+        if self._mic is None:
+            raise AdapterError("unsupported", "this connection has no audio channel")
+        if not isinstance(rate, int) or not 8000 <= rate <= 48000:
+            raise AdapterError("invalid_input", f"bad mic rate {rate!r}")
+        q = self._mic.subscribe(rate, max_chunks)
+        self._mic_subs.add(q)
+        if not self._mic_on:
+            try:
+                self._conn.audio.switchAudioChannel(True)
+            except Exception as e:
+                self._mic.unsubscribe(q)
+                self._mic_subs.discard(q)
+                raise AdapterError("device_error", f"mic switch on failed: {e}") from e
+            self._mic_on = True
+        return q
+
+    def mic_unsubscribe(self, q: asyncio.Queue) -> None:
+        """Never raises. The last subscriber switches the mic channel off."""
+        if q not in self._mic_subs:
+            return
+        self._mic_subs.discard(q)
+        if self._mic is not None:
+            self._mic.unsubscribe(q)
+        if not self._mic_subs and self._mic_on:
+            self._mic_on = False
+            try:
+                self._conn.audio.switchAudioChannel(False)
+            except Exception:
+                pass
+
+    async def record_audio(self, seconds: float = 5.0, name: str | None = None,
+                           rate: int = 48000) -> dict:
+        """Record the dog's mic to a mono WAV in output_dir. Returns path, seconds, level."""
+        try:
+            secs = float(seconds)
+        except (TypeError, ValueError) as e:
+            raise AdapterError("invalid_input", f"bad seconds {seconds!r}") from e
+        if not math.isfinite(secs) or not 0.2 <= secs <= 60:
+            raise AdapterError("invalid_input", "seconds must be 0.2..60")
+        from patrol.dog import audio as _audio
+        q = self.mic_subscribe(rate)
+        try:
+            pcm = await _audio.collect(q, secs, rate)
+        except TimeoutError as e:
+            raise AdapterError("timeout", str(e)) from e
+        finally:
+            self.mic_unsubscribe(q)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        safe = "".join(ch for ch in (name or "mic") if ch.isalnum() or ch in "-_")[:40] or "mic"
+        path = await asyncio.to_thread(_audio.write_wav, self._output_dir / f"{safe}_{stamp}.wav", pcm, rate)
+        levels = _audio.level_series(pcm, rate)
+        return {"path": path, "seconds": round(len(pcm) / 2 / rate, 2), "rate": rate,
+                "peak_dbfs": max(levels) if levels else None, "levels_dbfs_100ms": levels}
+
+    def mic_status(self) -> dict:
+        st = self._mic.status() if self._mic is not None else {
+            "frames": 0, "level_dbfs": None, "last_frame_age_s": None, "format": None}
+        return {"on": self._mic_on, "subscribers": len(self._mic_subs), **st}
+
+    def _ensure_speaker(self):
+        self._require_connected()
+        if self._speaker is not None and self._speaker.readyState == "live":
+            return self._speaker
+        pc = getattr(self._conn, "pc", None)
+        sender = tr = None
+        for t in (pc.getTransceivers() if pc is not None else []):
+            if getattr(t, "kind", None) == "audio":
+                sender, tr = t.sender, t
+                break
+        if sender is None:
+            raise AdapterError("unsupported", "this connection has no audio transceiver")
+        from patrol.dog import audio as _audio
+        sp = _audio.SpeakerTrack()
+        sender.replaceTrack(sp)
+        self._speaker, self._speaker_sender, self._speaker_transceiver = sp, sender, tr
+        return sp
+
+    def _queue_pcm48(self, pcm: bytes, interrupt: bool) -> float:
+        sp = self._ensure_speaker()
+        if interrupt:
+            sp.clear()
+        try:
+            sp.enqueue(pcm)
+        except OverflowError as e:
+            raise AdapterError("invalid_input", str(e)) from e
+        return round(len(pcm) / 2 / 48000, 2)
+
+    def _audio_shutdown(self) -> None:
+        for q in list(self._mic_subs):
+            self.mic_unsubscribe(q)
+        sp, self._speaker = self._speaker, None
+        if sp is not None:
+            try:
+                if self._speaker_sender is not None:
+                    self._speaker_sender.replaceTrack(None)
+            except Exception:
+                pass
+            sp.stop()
+        self._speaker_sender = None
+
+    async def _on_audio_frame(self, frame) -> None:
+        try:
+            if self._mic is not None and not self._closed:
+                self._mic.feed(frame)
+        except Exception:
+            pass                            # never kill the vendor's audio loop
 
     # ------------------------------------------------------------ safety envelope
 
@@ -814,7 +1350,8 @@ class RealDog:
     def _topics(self) -> dict:
         if self._conn_factory is not None:
             return {k: k for k in ("LF_SPORT_MOD_STATE", "MULTIPLE_STATE", "LOW_STATE",
-                                   "SPORT_MOD", "OBSTACLES_AVOID", "MOTION_SWITCHER", "VUI")}
+                                   "SPORT_MOD", "OBSTACLES_AVOID", "MOTION_SWITCHER", "VUI",
+                                   "ULIDAR_ARRAY", "ULIDAR_SWITCH", "WIRELESS_CONTROLLER")}
         from unitree_webrtc_connect.constants import RTC_TOPIC
         return RTC_TOPIC
 
@@ -839,6 +1376,27 @@ class RealDog:
                 raise AdapterError("cancelled", "halted")
             self._check_ctx(ctx)
             await asyncio.sleep(0.05)
+
+    def _is_lying_now(self) -> bool:
+        """Fresh sport state says the body is DOWN: a lie-down / damping mode (LYING_MODES), or
+        body height below the standing minimum. Used to confirm a StandDown, so it is strict: any
+        other mode at full height (e.g. 8 recovery) is NOT lying. Unknown / stale => False
+        (fail toward "not confirmed")."""
+        s = self._sport
+        if s is None or time.monotonic() - self._sport_t > STATE_STALE_S:
+            return False
+        try:
+            mode = s.get("mode")
+            if mode is not None and int(mode) in LYING_MODES:
+                return True
+            return float(s["body_height"]) < STANDING_MIN_HEIGHT_M
+        except (KeyError, TypeError, ValueError):
+            return False
+
+    def _posture_raw(self) -> dict:
+        """Raw sport mode + body height for reports (None when unknown). Never raises."""
+        s = self._sport if isinstance(self._sport, dict) else {}
+        return {"mode": s.get("mode"), "body_height": s.get("body_height")}
 
     def _is_stationary_now(self) -> bool:
         s = self._sport
@@ -875,7 +1433,8 @@ class RealDog:
             raise AdapterError("device_error", f"request failed: {e}") from e
 
     async def _sport_request(self, name: str, parameter: dict | None = None, *,
-                             priority: bool = False, lock_on_timeout: bool = True) -> dict:
+                             priority: bool = False, lock_on_timeout: bool = True,
+                             accept_codes: tuple[int, ...] = ()) -> dict:
         opts: dict = {"api_id": SPORT_API[name]}
         if parameter is not None:
             opts["parameter"] = parameter
@@ -888,7 +1447,7 @@ class RealDog:
         timeout = max(POSTURE_TIMEOUT_S, self._command_timeout_s) if name in POSTURE_CMDS else None
         resp = await self._request(self._topics()["SPORT_MOD"], opts, lock_on_timeout, timeout)
         code = self._resp_code(resp)
-        if code not in (0, None):
+        if code not in (0, None) and code not in accept_codes:
             raise AdapterError("device_error", f"{name} returned code {code}")
         return resp
 
@@ -1001,6 +1560,7 @@ class RealDog:
     async def _stop_and_verify(self) -> bool:
         if not self._connected:
             return False
+        self._zero_sticks_first()
         try:
             await self._sport_request("StopMove", priority=True, lock_on_timeout=False)
         except AdapterError:
@@ -1041,6 +1601,19 @@ class RealDog:
 
     def _on_low(self, msg: dict) -> None:
         self._low = msg.get("data")
+
+    def _on_lidar(self, msg: dict) -> None:
+        try:
+            now = time.monotonic()
+            scan = lidar_mod.scan_from_message(msg, now)
+            if scan is None:
+                self._lidar_bad += 1
+                return
+            self._lidar = scan
+            self._lidar_msgs += 1
+            self._lidar_times.append(now)
+        except Exception:  # vendor callbacks never raise
+            self._lidar_bad += 1
 
     async def _on_track(self, track) -> None:
         self._video_task_running = True

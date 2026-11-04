@@ -56,6 +56,7 @@ class FakeDog:
 
         self.scenario: str = scenario
         self.trace: list[str] = []
+        self.spoken: list[str] = []   # what say()/play_* were asked to play, in order
         self._routes = frozenset(routes)
         self._route_s = _positive(config, "fake_route_s", 0.2)
         self._output_dir = Path(output_dir).resolve()
@@ -191,3 +192,83 @@ class FakeDog:
         self._halted = True
         self._connected = False
         self._closed = True
+
+    # -- audio extras (same names as RealDog; no audio libraries, nothing is played) ----
+
+    async def get_volume(self) -> int | None:
+        self._require_connected()
+        self.trace.append("get_volume")
+        return getattr(self, "_volume", 5)
+
+    async def set_volume(self, level: float) -> int:
+        self._require_connected()
+        self.trace.append("set_volume")
+        try:
+            lvl = float(level)
+        except (TypeError, ValueError) as e:
+            raise _invalid(f"bad volume {level!r}") from e
+        if lvl != lvl or lvl in (float("inf"), float("-inf")):
+            raise _invalid(f"bad volume {level!r}")
+        self._volume = int(max(0, min(10, round(lvl))))
+        return self._volume
+
+    def play_pcm(self, pcm: bytes, rate: int = 48000, channels: int = 1, *,
+                 interrupt: bool = False, max_lag_s: float | None = None) -> float:
+        """Records the call; returns the seconds of audio it would have queued."""
+        self._require_connected()
+        if not isinstance(rate, int) or not 8000 <= rate <= 192000 or channels not in (1, 2):
+            raise _invalid(f"bad PCM format rate={rate!r} channels={channels!r}")
+        self.trace.append("play_pcm")
+        secs = len(pcm) / (2 * channels * rate)
+        self.spoken.append(f"<pcm {secs:.2f} s>")
+        return round(secs, 2)
+
+    def play_chime(self, *, interrupt: bool = True) -> float:
+        self._require_connected()
+        self.trace.append("play_chime")
+        self.spoken.append("<chime>")
+        return 0.6
+
+    async def play_audio_file(self, path: str | os.PathLike, *, interrupt: bool = True) -> float:
+        self._require_connected()
+        self.trace.append("play_audio_file")
+        if not Path(path).is_file():
+            raise _invalid(f"cannot play {path}: not found")
+        self.spoken.append(f"<file {Path(path).name}>")
+        return 1.0
+
+    async def say(self, text: str, voice: str = "Alice", *, interrupt: bool = True) -> float:
+        """Records the text in `spoken` (tests can assert what the dog said)."""
+        self._require_connected()
+        self.trace.append("say")
+        text = (text or "").strip() if isinstance(text, str) else ""
+        if not text or len(text) > 400:
+            raise _invalid("say: text must be 1..400 characters")
+        self.spoken.append(text)
+        return round(0.35 * max(1, len(text.split())), 2)
+
+    def stop_audio(self) -> None:
+        self.trace.append("stop_audio")
+
+    async def record_audio(self, seconds: float = 5.0, name: str | None = None,
+                           rate: int = 48000) -> dict:
+        """Writes a silent mono WAV (simulated) and returns the same fields as RealDog."""
+        import wave
+        self._require_connected()
+        self.trace.append("record_audio")
+        try:
+            secs = float(seconds)
+        except (TypeError, ValueError) as e:
+            raise _invalid(f"bad seconds {seconds!r}") from e
+        if not 0.2 <= secs <= 60:
+            raise _invalid("seconds must be 0.2..60")
+        self._output_dir.mkdir(parents=True, exist_ok=True)
+        safe = re.sub(r"[^A-Za-z0-9_-]", "", name or "mic")[:40] or "mic"
+        path = self._output_dir / f"{safe}_{uuid.uuid4().hex[:8]}_simulated.wav"
+        with wave.open(str(path), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(rate)
+            w.writeframes(bytes(int(secs * rate) * 2))
+        return {"path": str(path), "seconds": round(secs, 2), "rate": rate, "peak_dbfs": -90.0,
+                "levels_dbfs_100ms": [], "simulated": True}

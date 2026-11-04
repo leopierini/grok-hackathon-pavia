@@ -269,3 +269,27 @@ def test_configured_extra_route(tmp_path):
         return await dog.run_route("entrance", c)
 
     assert asyncio.run(run()).completed
+
+
+def test_fake_dog_audio_extras(tmp_path):
+    import asyncio
+    import wave
+
+    from patrol.dog.fake import FakeDog
+
+    async def go():
+        dog = FakeDog(config={}, output_dir=tmp_path)
+        with pytest.raises(AdapterError):
+            await dog.say("ciao")
+        await dog.connect()
+        assert await dog.set_volume(14) == 10 and await dog.get_volume() == 10
+        assert await dog.say("Buonasera, quest'area è riservata.") > 0
+        assert dog.play_pcm(bytes(48000), rate=24000) == 1.0
+        rec = await dog.record_audio(1.0, name="answer")
+        with wave.open(rec["path"]) as w:
+            assert w.getnframes() == 48000
+        assert rec["simulated"] is True
+        assert dog.spoken[0].startswith("Buonasera")
+        with pytest.raises(AdapterError):
+            await dog.say("")
+    asyncio.run(go())

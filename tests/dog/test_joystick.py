@@ -142,7 +142,7 @@ def test_controller_clamps_to_joystick_caps(tmp_path):
 
 
 def test_ws_drive_is_capped_and_rate_limited(tmp_path):
-    sim = SimConn(camera=False)
+    sim = SimConn(camera=False, lidar=False)
 
     async def go():
         ctl = make_ctl(tmp_path, sim)

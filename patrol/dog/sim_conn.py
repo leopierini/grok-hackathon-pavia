@@ -6,10 +6,25 @@ adapter code (caps, timeouts, motion lock) runs unchanged on top of it. Used by
 
 - Sport `Move` sets a commanded velocity; the body velocity follows it with a short
   lag and integrates into position/heading. A Move expires after `move_expiry_s`.
+- Remote-controller sticks on WIRELESS_CONTROLLER (publish_without_callback) also set the
+  commanded velocity (STICK_SCALE: 1.0 = 1 m/s / 1 rad/s, sim only), expiring like Move. With
+  `avoid` on, only stick commands are filtered: forward is held while a synthetic-room point is
+  within AVOID_DISTANCE_M of the nose (Move is never filtered, as seen on the real dog).
+  `stick_hold=True` models the real-dog unknown at its worst: a held stick never expires and
+  StopMove does not clear it; only a zero stick message (or lying down) stops it.
 - StopMove zeroes the command. StandDown lies down slowly, StandUp + BalanceStand
   stand up again. Damp is recorded (tests check it is never sent) and drops the dog.
-- VUI brightness get/set (api 1006/1005), obstacle-avoid get/set, motion-mode read.
+- VUI brightness get/set (api 1006/1005), volume get/set (1004/1003), obstacle-avoid
+  get/set, motion-mode read.
+- Audio: `pc.getTransceivers()` has one audio transceiver; its sender pulls the
+  speaker track in real time (like aiortc would) and records what was "played".
+  `audio.switchAudioChannel(True)` starts a fake mic: 48 kHz stereo s16 frames with
+  quiet noise plus the speaker output at -10 dB (the dog hears itself).
 - Fake camera: a generated top-down image with a moving marker and a timestamp.
+- Fake LiDAR: while subscribed to ULIDAR_ARRAY, `LIDAR_HZ` voxel-map messages of a fixed
+  6 x 5 m room (patrol.dog.lidar.synthetic_room_points, world frame). With
+  `lidar_needs_switch=True` nothing is sent until the "on" message reaches ULIDAR_SWITCH
+  (like a dog whose sensor is off). `set_decoder` / `disableTrafficSaving` are recorded.
 
 Reusable across re-arms: connect() resets subscriptions, disconnect() stops streams,
 the simulated body (position, posture, brightness) persists like the real dog.
@@ -25,6 +40,9 @@ from datetime import datetime, timezone
 
 SPORT_STATE_HZ = 20.0
 SLOW_STATE_S = 1.0
+LIDAR_HZ = 5.0
+STICK_SCALE = 1.0        # sim only: stick 1.0 = 1 m/s forward/sideways, 1 rad/s turn
+AVOID_DISTANCE_M = 0.5   # sim avoidance: obstacle closer than this to the nose => no forward
 
 
 def _ok(data: dict | None = None) -> dict:
@@ -44,6 +62,13 @@ class SimPubSub:
 
     async def publish_request_new(self, topic, options):
         return await self.conn._handle(topic, options)
+
+    def publish_without_callback(self, topic, data=None):
+        self.conn.sent.append((topic, None, data, time.monotonic()))
+        if topic == "ULIDAR_SWITCH" and data == "on":
+            self.conn.lidar_on = True
+        elif topic == "WIRELESS_CONTROLLER" and isinstance(data, dict):
+            self.conn._sticks(data)
 
 
 class SimFrame:
@@ -89,12 +114,117 @@ class SimVideo:
             self.track = None
 
 
+class SimSender:
+    """Pulls the speaker track at real-time pace, like aiortc's RTP sender."""
+
+    def __init__(self, conn: "SimConn") -> None:
+        self.conn = conn
+        self.track = None
+        self._task: asyncio.Task | None = None
+
+    def replaceTrack(self, track) -> None:
+        self.track = track
+        if track is not None and self._task is None:
+            self._task = asyncio.get_running_loop().create_task(self._pump())
+
+    async def _pump(self) -> None:
+        import numpy as np
+        while True:
+            tr = self.track
+            if tr is None:
+                await asyncio.sleep(0.02)
+                continue
+            try:
+                f = await tr.recv()
+            except Exception:
+                self.track = None
+                continue
+            a = np.frombuffer(bytes(f.planes[0])[: f.samples * 2], dtype="<i2")
+            self.conn.frames_played += 1
+            if np.any(a):
+                self.conn.audio_played_s += f.samples / 48000
+                self.conn.peak_played = max(self.conn.peak_played, int(np.max(np.abs(a))))
+            if self.conn.volume_mutes and self.conn.volume == 0:
+                a = np.zeros_like(a)         # the speaker plays nothing at volume 0
+            self.conn._loopback.append(a)
+
+    def stop(self) -> None:
+        if self._task is not None:
+            self._task.cancel()
+            self._task = None
+        self.track = None
+
+
+class SimTransceiver:
+    kind = "audio"
+
+    def __init__(self, conn: "SimConn") -> None:
+        self.sender = SimSender(conn)
+        self.currentDirection = "sendrecv"
+
+
+class SimPC:
+    def __init__(self, conn: "SimConn") -> None:
+        self.connectionState = "new"
+        self._transceivers = [SimTransceiver(conn)]
+
+    def getTransceivers(self):
+        return list(self._transceivers)
+
+
+class SimAudio:
+    """Fake mic channel (vendor: conn.audio)."""
+
+    def __init__(self, conn: "SimConn") -> None:
+        self.conn = conn
+        self.cbs: list = []
+        self._task: asyncio.Task | None = None
+
+    def add_track_callback(self, cb) -> None:
+        self.cbs.append(cb)
+
+    def switchAudioChannel(self, on: bool) -> None:
+        self.conn.audio_switches.append(bool(on))
+        if on and self._task is None and self.conn.mic:
+            self._task = asyncio.get_running_loop().create_task(self._mic())
+        elif not on:
+            self.stop()
+
+    async def _mic(self) -> None:
+        import av
+        import numpy as np
+        rng = np.random.default_rng(1)
+        n, t0, k = 960, time.monotonic(), 0
+        while True:
+            k += 1
+            await asyncio.sleep(max(0.0, t0 + k * 0.02 - time.monotonic()))
+            mono = rng.normal(0, 30, n)                       # ~ -60 dBFS room noise
+            if self.conn._loopback:
+                lb = self.conn._loopback.popleft().astype(np.float64)
+                mono[: len(lb)] += 0.3 * lb[:n]
+            st = np.repeat(np.clip(mono, -32768, 32767).astype("<i2"), 2).reshape(1, -1)
+            fr = av.AudioFrame.from_ndarray(st, format="s16", layout="stereo")
+            fr.sample_rate = 48000
+            fr.pts = k * n
+            for cb in list(self.cbs):
+                await cb(fr)
+
+    def stop(self) -> None:
+        if self._task is not None:
+            self._task.cancel()
+            self._task = None
+
+
 class SimConn:
     def __init__(self, *, avoid: bool = True, publish_multi: bool = True, hang_on_move: bool = False,
                  standing: bool = True, camera: bool = True, fps: float = 15.0,
-                 move_expiry_s: float = 1.0, tau_s: float = 0.15, brightness: int = 0) -> None:
+                 move_expiry_s: float = 1.0, tau_s: float = 0.15, brightness: int = 0,
+                 volume: int = 0, mic: bool = True, audio: bool = True,
+                 volume_mutes: bool = False, lidar: bool = True,
+                 lidar_needs_switch: bool = False, stick_hold: bool = False) -> None:
         self.sent: list[tuple] = []          # (topic, api_id, parameter, monotonic time)
         self.avoid = avoid
+        self.stick_hold = stick_hold         # True: held sticks never expire, StopMove ignores them; only zero sticks stop
         self.publish_multi = publish_multi
         self.hang_on_move = hang_on_move
         self.camera = camera
@@ -102,13 +232,34 @@ class SimConn:
         self.move_expiry_s = move_expiry_s
         self.tau_s = tau_s
         self.brightness = brightness
+        self.volume = volume
+        self.volume_mutes = volume_mutes     # True: like the real dog, volume 0 = silent speaker
+        self.mic = mic
+        self.lidar = lidar
+        self.lidar_needs_switch = lidar_needs_switch
+        self.lidar_on = not lidar_needs_switch   # the sensor's state persists across sessions
+        self.decoder_calls: list[str] = []
+        self.traffic_saving_calls: list[bool] = []
+        self._lidar_points = None
         self.connects = 0
+        # audio
+        from collections import deque
+        self._loopback: deque = deque(maxlen=50)   # speaker output the fake mic hears
+        self.frames_played = 0
+        self.audio_played_s = 0.0
+        self.peak_played = 0
+        self.audio_switches: list[bool] = []
+        self.pc = SimPC(self)
+        if audio:
+            self.audio = SimAudio(self)
         # body
         self.x = self.y = self.heading = 0.0
         self.v = [0.0, 0.0]                  # world-frame velocity
         self.w = 0.0
         self.cmd = (0.0, 0.0, 0.0)           # body-frame vx, vy, vyaw
         self.cmd_t = 0.0
+        self.cmd_src = "move"                # "move" (sport Move) or "sticks" (remote-controller topic)
+        self.avoid_blocked = False           # simulated avoidance is holding forward motion
         self.height = 0.32 if standing else 0.08
         self.height_target = self.height
         self.mode = 1 if standing else 5
@@ -116,6 +267,8 @@ class SimConn:
         self.soc = 80.0
         self.datachannel = type("DC", (), {})()
         self.datachannel.pub_sub = SimPubSub(self)
+        self.datachannel.set_decoder = self._set_decoder
+        self.datachannel.disableTrafficSaving = self._disable_traffic_saving
         self.video = SimVideo(self)
         self._task: asyncio.Task | None = None
         self._frame_n = 0
@@ -125,6 +278,10 @@ class SimConn:
         self.connects += 1
         self.datachannel.pub_sub.subs = {}
         self.video.cb = None
+        if hasattr(self, "audio"):
+            self.audio.cbs = []
+        self.pc = SimPC(self)
+        self.pc.connectionState = "connected"
         self._task = asyncio.get_running_loop().create_task(self._stream())
 
     async def disconnect(self):
@@ -132,6 +289,17 @@ class SimConn:
             self._task.cancel()
             self._task = None
         self.video.stop()
+        if hasattr(self, "audio"):
+            self.audio.stop()
+        for t in self.pc.getTransceivers():
+            t.sender.stop()
+        self.pc.connectionState = "closed"
+
+    def _set_decoder(self, decoder_type: str = "libvoxel") -> None:
+        self.decoder_calls.append(decoder_type)
+
+    async def _disable_traffic_saving(self, switch: bool) -> None:
+        self.traffic_saving_calls.append(bool(switch))
 
     # ---------------------------------------------------------- helpers for tests
     def apis(self, topic: str = "SPORT_MOD") -> list[int]:
@@ -155,8 +323,10 @@ class SimConn:
                 if self._standing():
                     self.cmd = (float(param["x"]), float(param["y"]), float(param["z"]))
                     self.cmd_t = time.monotonic()
+                    self.cmd_src = "move"
             elif api == 1003:                                # StopMove
-                self.cmd = (0.0, 0.0, 0.0)
+                if not (self.stick_hold and self.cmd_src == "sticks"):
+                    self.cmd = (0.0, 0.0, 0.0)
             elif api == 1005:                                # StandDown (slow)
                 self.cmd = (0.0, 0.0, 0.0)
                 self.mode, self.height_target, self.balance_pending = 5, 0.08, False
@@ -179,6 +349,10 @@ class SimConn:
                 return _ok({"brightness": self.brightness})
             if api == 1005 and isinstance(param, dict):
                 self.brightness = int(param["brightness"])
+            if api == 1004:
+                return _ok({"volume": self.volume})
+            if api == 1003 and isinstance(param, dict):
+                self.volume = int(param["volume"])
             return _ok()
         if topic == "MOTION_SWITCHER" and api == 1001:
             return _ok({"name": "normal"})
@@ -187,14 +361,41 @@ class SimConn:
     def _standing(self) -> bool:
         return self.mode in (0, 1, 2, 3) and self.height >= 0.25
 
+    def _sticks(self, d: dict) -> None:
+        """Remote-controller sticks (sim scale: 1.0 = 1 m/s forward/sideways, 1 rad/s turn).
+        ly + = forward, lx + = strafe right (body vy -), rx + = turn RIGHT (body vyaw -), as the
+        real dog does (measured 2026-11-04 19:30: rx + made the yaw decrease). Expire like Move."""
+        try:
+            lx, ly, rx = float(d.get("lx", 0.0)), float(d.get("ly", 0.0)), float(d.get("rx", 0.0))
+        except (TypeError, ValueError):
+            return
+        if self._standing():
+            self.cmd = (ly * STICK_SCALE, -lx * STICK_SCALE, -rx * STICK_SCALE)
+            self.cmd_t = time.monotonic()
+            self.cmd_src = "sticks"
+
+    def _obstacle_ahead(self) -> bool:
+        """Simulated avoidance: a synthetic-room point within AVOID_DISTANCE_M of the nose."""
+        from patrol.dog.lidar import nearest_ahead, synthetic_room_points, to_body
+        if self._lidar_points is None:
+            self._lidar_points = synthetic_room_points()
+        d = nearest_ahead(to_body(self._lidar_points, (self.x, self.y, self.heading, 0.0)))
+        return d is not None and d < AVOID_DISTANCE_M
+
     # ---------------------------------------------------------- physics + state
     def _step(self, dt: float) -> None:
         now = time.monotonic()
-        if now - self.cmd_t > self.move_expiry_s:
+        held = self.stick_hold and self.cmd_src == "sticks"
+        if now - self.cmd_t > self.move_expiry_s and not held:
             self.cmd = (0.0, 0.0, 0.0)
         if not self._standing():
             self.cmd = (0.0, 0.0, 0.0)
         cvx, cvy, cw = self.cmd
+        # The obstacle-avoid service filters only the remote-controller path (sport Move is not
+        # filtered: real dog, 2026-11-04 18:08). Sim: just hold forward motion near an obstacle.
+        self.avoid_blocked = bool(self.avoid and self.cmd_src == "sticks" and cvx > 0 and self._obstacle_ahead())
+        if self.avoid_blocked:
+            cvx = 0.0
         c, s = math.cos(self.heading), math.sin(self.heading)
         tx, ty = cvx * c - cvy * s, cvx * s + cvy * c
         k = min(1.0, dt / self.tau_s)
@@ -224,6 +425,7 @@ class SimConn:
         subs = self.datachannel.pub_sub.subs
         last = time.monotonic()
         last_slow = 0.0
+        last_lidar = 0.0
         while True:
             now = time.monotonic()
             self._step(now - last)
@@ -240,8 +442,20 @@ class SimConn:
                     subs["LOW_STATE"]({"data": {"bms_state": {"soc": int(self.soc)}}})
                 if self.publish_multi and "MULTIPLE_STATE" in subs:
                     subs["MULTIPLE_STATE"]({"data": json.dumps({
-                        "obstaclesAvoidSwitch": self.avoid, "brightness": self.brightness, "volume": 0})})
+                        "obstaclesAvoidSwitch": self.avoid, "brightness": self.brightness, "volume": self.volume})})
+            if (self.lidar and "ULIDAR_ARRAY" in subs and self.lidar_on
+                    and now - last_lidar >= 1.0 / LIDAR_HZ):
+                last_lidar = now
+                subs["ULIDAR_ARRAY"](self._lidar_message(now))
             await asyncio.sleep(1.0 / SPORT_STATE_HZ)
+
+    def _lidar_message(self, now: float) -> dict:
+        if self._lidar_points is None:
+            from patrol.dog.lidar import synthetic_room_points
+            self._lidar_points = synthetic_room_points()
+        return {"topic": "ULIDAR_ARRAY", "data": {
+            "origin": [-3.0, -2.5, 0.0], "resolution": 0.05, "frame_id": "odom", "stamp": now,
+            "data": {"points": self._lidar_points}}}
 
     # ---------------------------------------------------------- fake camera
     def render(self):
