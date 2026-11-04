@@ -1,0 +1,351 @@
+       4–5 NOVE MB ER 20 2 6   ·   CTRL+ ALT MUSEUM, PA VIA
+
+
+
+
+GROK
+HACKATHON
+at the Museum
+ Hardware    API     Grok
+      BEFO RE YO U START
+
+
+
+Practical info
+
+
+
+                                                               All night                                 Bring your laptop
+                                                               Free entry and exit. Open nonstop until   API credits are provided.
+                                                               Thu 21:00.
+
+
+
+
+                                                               Hardware slots                            Awards ceremony
+               Network hackathon                               Robot dog and arms: 30-minute slots,      Thu 21:00, right after pitches and
+               Password hackathon                              always with museum staff.                 evaluation.
+
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·    C TR L+ A LT MU SE UM , P A VI A                                              2
+      WHE RE WE ARE
+
+
+
+
+                                                                Ctrl+Alt Museum
+                                                                A retro computing museum
+                                                                Run by comPVter, a nonprofit.
+
+
+
+
+                                                                   1,800 m²                        3                   200 m
+                                                                   across three pavilions          sections            from Pavia station
+
+
+
+
+                                                                   Computing          Gaming      Objects
+
+
+
+                                                                      Via Gragnani, 18 · 27100 Pavia
+
+                                                                      About 25 minutes by train from Milano Rogoredo
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·   C TR L+ A LT MU SE UM , P A VI A                                             4
+       4 – 5 NOV EM BE R · RO ME T IME (C ET )
+
+
+
+Agenda: two days
+
+            Day 01 · Wednesday 4 November                                                              Day 02 · Thursday 5 November
+
+
+    09:00          Kick-off: hardware tour, find a team, start building                       10:00         Ralph Johnson: Grok models, API, Voice and Bots
+
+
+    10:00          Intro to cobots, dogs, drones and rovers                                   11:00         Meet the MESetAs, using Grok Bots for everything
+
+
+    11:00          Factory Academia                                                           16:00         Video demo deadline (all tracks)
+
+
+    18:30          Riso Scotti meets the Hackathon                                            16:00         Project evaluation and pitches, until 19:00
+
+
+    Night          Hacking continues, the spaces stay open                                    21:00         Award ceremony
+
+
+
+Pitches and evaluation from 16:00 · Free entry and exit: the spaces stay open all night until Thu 21:00
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·    4 –5 NOV 2026 ·       C TR L+ A LT MU SE UM , P A VI A                                                           5
+      DAY 01 · WE DNE SDAY 4 NOV EM BE R
+
+
+
+
+  TALK
+
+
+
+
+10:00
+Intro to cobots, dogs, drones and
+rovers
+
+
+
+The hardware on site: robotic dog, robotic arm, drones, driving and flight
+simulators.
+
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·   C TR L+ A LT MU SE UM , P A VI A   6
+      DAY 01 · WE DNE SDAY 4 NOV EM BE R
+
+
+
+
+  TALK
+
+
+
+
+11:00
+Factory Academia
+
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·   C TR L+ A LT MU SE UM , P A VI A   7
+      DAY 01 · WE DNE SDAY 4 NOV EM BE R
+
+
+
+
+  TALK
+
+
+
+
+18:30
+Riso Scotti meets the Hackathon
+
+
+
+
+Riso Scotti, event sponsor, proposes Track B: B.R.C. Best Rice Company,
+Autonomous Company.
+
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·   C TR L+ A LT MU SE UM , P A VI A   8
+      DAY 02 · THURSDA Y 5 NO VEMBER
+
+
+
+
+  TALK
+
+
+
+
+10:00
+Ralph Johnson
+
+
+
+
+Field Engineer @ SpaceXAI. Grok models, API, Grok Voice, Grok Bots. Also on the jury.
+
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·   C TR L+ A LT MU SE UM , P A VI A   9
+      DAY 02 · THURSDA Y 5 NO VEMBER
+
+
+
+
+  TALK
+
+
+
+
+11:00
+Meet the MESetAs, using Grok Bots
+for everything
+
+
+
+Luca Bianchi · CTIO at MESA Group
+
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·   C TR L+ A LT MU SE UM , P A VI A   10
+       PROPOSED TRACKS
+
+
+
+Ten tracks                                                                                                                         Full briefs: pavia.grokbot.it/tracks →
+
+
+
+PROPOSED BY COMPANIES
+
+
+
+
+               A                                           B                                            C                                            D
+  CTRL+F: SEA                                B.R.C. Best Rice Company                        Labelling from the Model Pack                 Robot Dog Patrol
+
+  SEA Vision                                 Riso Scotti                                     Cristina Portinaro Cosmetics                  Riello
+
+     Arm           Camera   Dog                   Software only                                Arm          Camera                            Dog        Phone cameras
+
+
+
+O PE N TRAC KS · P RO PO SE D BY THE ORGAN ISE RS
+
+
+
+  01                          02                               03                           04                              05                           06
+  Research Radar              GitHub Benchmark                 Agent Failure Lab            Voice Control                   Robot Skill Passport         LabOS
+                              Arena
+
+                                                                                            ARM                             AR M TE ST
+
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·         C TR L+ A LT MU SE UM , P A VI A                                                                       11
+      APPLY TO EVERY TRACK
+
+
+
+Rules for all tracks
+
+
+
+    Deliver a repo                                        Teams of 4–6                               Grok is essential
+    README, the data used, one result measured            Every team has 4 to 6 people.              Grok (the API, Grok Voice or the Bot) must be
+    against a baseline, known limitations.                                                           essential to how the solution works, not
+                                                                                                     decorative.
+
+
+
+
+    Hardware slots                                        Data                                       Video demo, ~2 minutes
+    Arms and dog: 30 minutes, always with staff.          Only public data, synthetic data or data   Every team submits a video demo of about 2
+    Printed tool, no gripper.                             provided by the companies.                 minutes by Thu 16:00.
+
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·   C TR L+ A LT MU SE UM , P A VI A                                                      12
+      HOW WE W ORK TOGETHER
+
+
+
+Code of Conduct
+
+                                                                       Respect everyone
+                                                                       Be kind and inclusive. No harassment or discrimination, in person or online.
+
+
+                                                                       Take care of the museum
+                                                                       The exhibits are historic. Handle with care and follow staff instructions.
+
+
+                                                                       Safety first with hardware
+                                                                       Robots, arms and drones only in your slot and always with staff.
+
+
+                                                                       Play fair
+                                                                       Only public, synthetic or company data. Credit your sources.
+    Build boldly.
+    Treat everyone well.                                               Speak up
+                                                                       If something feels wrong, tell the organisers or museum staff right away.
+
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·   C TR L+ A LT MU SE UM , P A VI A                                                       13
+      HEADS UP
+
+
+
+
+We will be
+filming.
+
+Video will be recorded during the event.
+
+
+
+                Prefer not to be filmed?
+                Please let the organisers know.
+
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·   C TR L+ A LT MU SE UM , P A VI A   14
+       WHO IS HERE
+
+
+
+Teams in numbers
+
+
+
+
+               16                                         65                                                 4–6
+                                                                                                    10
+               teams                                  participants                                  tracks   per team
+
+16 teams and 65 participants across 10 tracks. Every team has 4 to 6 people.
+Numbers from the registration portal on 3 November; they may change at check-in.
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·     C TR L+ A LT MU SE UM , P A VI A                       15
+      NO TEAM Y ET?
+
+
+
+
+You don't have a team?
+No problem.
+
+
+
+Just meet and mingle, then join a couple of fellow
+builders and create your winning team.
+
+
+
+   Teams of 4–6
+
+
+
+
+GR O K HA C K A TH O N AT TH E M US EU M ·   4 –5 NOV 2026 ·   C TR L+ A LT MU SE UM , P A VI A   16
+        Let's build
+  Video demo Thu 16:00          ·   Awards Thu 21:00
+Show something on Thursday that didn't work when you started.
+
+
+                     pavia.grokbot.it
+

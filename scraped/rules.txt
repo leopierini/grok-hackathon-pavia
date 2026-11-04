@@ -1,0 +1,78 @@
+How teams work | Grok Hackathon at the Museum
+[Skip to content](#content)[Grok Hackathon](/)
+- [The brief](/#brief)
+- [Tracks](/#tracks)
+- [Hardware](/#hardware)
+- [Schedule](/#schedule)
+- [Teams](/#teams)
+- [Jury](/#jury)
+- [Venue](/#venue)
+- [Sponsors](/#sponsors)
+
+[Create or Join a Team](/register)
+Rules
+# How teams work
+Grok Hackathon at the Museum is built in teams of 4 to 6. Here is everything about signing in, registering or joining a team and getting a seat.
+
+Registration closes on November 2 (23:59, Rome time).
+Register a team and share its secret code, or join a team with a code from a teammate. On your own? Register as looking for a team. Registering a team gives priority for participation confirmation.
+## Three ways to take part
+- 1
+### Register a team
+Sign in, create your team (name and a short description) and you immediately get its secret code. It stays visible to every member on your dashboard. Share it with the people you want: a team has 4 to 6 members.
+- 2
+### Join a team
+Got a code from a teammate? Sign in, choose Join a team and enter it. If the code is wrong, no longer active, or the team is full, you get a clear message.
+- 3
+### I'm looking for a team
+On your own? Mark yourself as looking for a team and add how to reach you. Teams with room can see your name, profile and note, and send you their code.
+## The rules
+- 01
+## Sign in with your Luma email
+Use the same email you used to register on Luma. Only guests the organisers have approved on Luma can sign in (not waitlist or pending); we send a one-time code to that address.
+- 02
+## Register a team, join one, or look for one
+Register a team and get its secret code, join a team by entering the code a teammate shares with you, or register as looking for a team so teams with room can find you. Registering a team gives priority for participation confirmation.
+- 03
+## Teams of 4 to 6
+A team needs at least 4 people to count as formed. At 6 members it closes automatically and the code stops working; if someone leaves, it opens again.
+- 04
+## One team at a time, and you can leave
+You can be in one team only. You can leave whenever you want before the lock. If the person who created the team leaves, the earliest-joined member takes over; a team with nobody left is removed.
+- 05
+## Teams lock on 2 November 2026 at 23:59 (Rome time)
+This is also the end of registration. After that moment nobody can register, join or leave a team. Sort out your team before then.
+- 06
+## Guaranteed seats for teams of 4+
+When teams lock, every member of a team with 4 or more people has a guaranteed seat. Everyone else (smaller teams, solo, available) gets the remaining seats, up to 100 in total, first come, first served by Luma registration time.
+## Questions
+
+When can I register, and as what?
+Registration closes on November 2 (2 November 2026 at 23:59 (Rome time)). That is also the team lock: one deadline for registering and for changing teams. You can register a team (you get a secret code to share), join a team with a code, or register as an individual looking for a team. Registering a team gives priority for participation confirmation.
+
+Which email do I sign in with?
+The one you used to register on Luma. We email a 6-digit code to it; there is no password. Only approved guests can sign in: if you are on the waitlist or still pending, you can sign in once the organisers approve your registration on Luma. If the portal says your email is not on the guest list, register on Luma first or try the other address you may have used. The guest list is imported from Luma by the organisers, so a new registration or approval can take a while to show up.
+
+How do I get people into my team?
+Create the team, then share its secret code privately. Anyone with the code can join while the team has room. The team lead can generate a new code at any time; the old one stops working.
+
+I have a code but it doesn't work. Why?
+The portal tells you which case it is: the code is mistyped or unknown, the team lead has replaced it with a new one, the team is full (6 members), or the lock has passed. Codes have 8 letters and digits, never 0, 1, I or O; case, spaces and dashes don't matter. Ask your team for the current code.
+
+I don't have a team. What now?
+Register as looking for a team on your dashboard and write a short note with what you like to work on and how to reach you. Members of teams with free seats can see your name, profile and note — never your email.
+
+What happens at the lock?
+On 2 November 2026 at 23:59 (Rome time) the teams are frozen. Teams with 4 or more members are formed and all their members get guaranteed seats. The remaining seats (out of 100) go first-come, first-served by Luma registration time to everyone else on the guest list, including people in smaller teams and people without a team.
+
+Will I get an email about my seat?
+Not automatically from the portal. The organisers will confirm seats; check Luma and your inbox.
+[Sign in with your Luma email](/register)[Register on Luma](https://luma.com/spacexai-z1ys)
+
+Grok Hackathon at the Museum
+4–5 November 2026 · Ctrl+Alt Museum, Via Gragnani, 18, 27100 Pavia PV, Italy
+SpaceXAI for Milan, Italy
+- [Tracks](/tracks)
+- [Team rules](/rules)
+- [Luma page(opens in a new tab)](https://luma.com/spacexai-z1ys)
+- [Ctrl+Alt Museum(opens in a new tab)](https://ctrlalt.museum)

@@ -1,0 +1,319 @@
+Grok Hackathon at the Museum — Ctrl+Alt Museum, Pavia, 4–5 November 2026
+[Skip to content](#content)[Grok Hackathon](/)
+- [The brief](/#brief)
+- [Tracks](/#tracks)
+- [Hardware](/#hardware)
+- [Schedule](/#schedule)
+- [Teams](/#teams)
+- [Jury](/#jury)
+- [Venue](/#venue)
+- [Sponsors](/#sponsors)
+
+[Create or Join a Team](/register)
+
+4–5 November 2026Ctrl+Alt Museum, Pavia
+# GrokHackathonat the Museum
+“Some of you were at the Café Cursor evenings in Milano. This one is a bit different.”— Luca Bianchi
+
+[Create or Join a Team](/register)
+Sign in with the email you used on Luma[Join the waitlist on Luma(opens in a new tab)](https://luma.com/spacexai-z1ys)[See the schedule](#schedule)
+Currently full: the waitlist is open.
+
+Registration closes on November 2 (23:59, Rome time).
+Register a team and share its secret code, or join a team with a code from a teammate. On your own? Register as looking for a team. Registering a team gives priority for participation confirmation.[How teams work](/rules)
+Hosted by SpaceXAI for Milan, Italy
+
+The brief
+## Hardware + API + Grok
+
+Pick a piece of hardware, an API, connect it to Grok (the API, Grok Voice, or the bot framework), and by Thursday afternoon show something that didn't work when you started.
+### You can use
+- [Grok APIGrok 4.7 for chat, reasoning and code, with function calling and structured outputs.(opens in a new tab)](https://docs.x.ai/overview)
+- [Search and code toolsWeb search, X search, code execution and search over your own documents, built into the API.(opens in a new tab)](https://docs.x.ai/developers/tools/overview)
+- [Grok VoiceReal-time speech-to-speech agents, text to speech and speech to text.(opens in a new tab)](https://docs.x.ai/developers/model-capabilities/audio/voice)
+- [Grok ImagineGenerate and edit images and videos from text.(opens in a new tab)](https://docs.x.ai/developers/model-capabilities/imagine)
+- [Grok BuildA coding agent for your terminal, also usable in scripts and from editors.(opens in a new tab)](https://docs.x.ai/build/overview)
+- [Grok BotAI teammates with their own computer that work across your apps.(opens in a new tab)](https://x.ai/news/introducing-grok-bot)
+- [CursorA coding agent for the desktop and the terminal, with parallel cloud agents and Grok 4.7 among its models.(opens in a new tab)](https://cursor.com/docs)
+
+Challenges
+## Proposed Tracks
+
+Proposed
+There are ten tracks, and each one is described with the same card, so they can be compared field by field. Tracks with a letter (A–D) are proposed by a company; tracks with a number (01–06) are open tracks proposed by the organisers.
+These are proposed tracks. They may be refined before the event.
+- 
+A
+### CTRL+F: SEA
+Proposed by SEA Vision
+
+In one sentence
+How do you play “Where's Waldo?” when Waldo changes every time and hides in a real room?
+
+In short
+Find an object in real space that has been described, photographed or is out of place[View the full brieffor CTRL+F: SEA](/tracks#ctrl-f-sea)
+- 
+B
+### B.R.C. Best Rice Company: Autonomous Company
+Proposed by Riso Scotti
+
+In one sentence
+How can a traditional food company handle orders, invoices and disputes without repetitive manual work?
+
+In short
+Agents that take a retail order all the way to the invoice and settle disputes[View the full brieffor B.R.C. Best Rice Company: Autonomous Company](/tracks#best-rice-company)
+- 
+C
+### Labelling from the Model Pack
+Proposed by Cristina Portinaro Cosmetics
+
+In one sentence
+Can a robot learn to label a new product by looking at a single sample pack?
+
+In short
+A robot that learns where the labels go by looking at a sample[View the full brieffor Labelling from the Model Pack](/tracks#labelling-from-the-model-pack)
+- 
+D
+### Robot Dog Patrol
+Proposed by Riello
+
+In one sentence
+Can a robot dog become the patrol that goes to check when a camera sees something strange?
+
+In short
+A camera sees an anomaly, the dog goes to check, the alert goes out[View the full brieffor Robot Dog Patrol](/tracks#robot-dog-patrol)
+- 
+01
+### Research Radar
+Proposed by Organisers
+
+In one sentence
+How is a research field changing?
+
+In short
+A map of how a research field changes over time[View the full brieffor Research Radar](/tracks#research-radar)
+- 
+02
+### GitHub Benchmark Arena
+Proposed by Organisers
+
+In one sentence
+Which new tools actually work?
+
+In short
+A reproducible benchmark of new open-source tools[View the full brieffor GitHub Benchmark Arena](/tracks#github-benchmark-arena)
+- 
+03
+### Agent Failure Lab
+Proposed by Organisers
+
+In one sentence
+Why does an agent fail, and how can it be improved?
+
+In short
+Understand why an agent fails and verify the fix[View the full brieffor Agent Failure Lab](/tracks#agent-failure-lab)
+- 
+04
+### Voice Control
+Proposed by Organisers
+
+In one sentence
+Can you control a robotic arm by speaking, with natural requests in Italian?
+
+In short
+Control a robotic arm by voice with Grok Voice[View the full brieffor Voice Control](/tracks#voice-control)
+- 
+05
+### Robot Skill Passport
+Proposed by Organisers
+
+In one sentence
+Can someone who has never used a robot learn from an automatically generated tutorial, and prove it?
+
+In short
+Tutorials generated from manuals and videos, with a hands-on check[View the full brieffor Robot Skill Passport](/tracks#robot-skill-passport)
+- 
+06
+### LabOS
+Proposed by Organisers
+
+In one sentence
+Can a digital custodian keep a robotics lab in order: what is there, where it is, who uses it and when?
+
+In short
+A chat custodian for the inventory and bookings of a lab[View the full brieffor LabOS](/tracks#labos)
+[View the full brief](/tracks)
+
+Hardware
+## What you get to hack on
+
+- 
+
+A robotic dog
+- 
+
+A flight simulator
+- 
+
+A robotic arm
+- 
+
+A driving simulator
+And also: A few drones
+Real access, not a demo behind a rope. Museum staff handle the hardware side and support builders.
+
+Schedule
+## Two days, one night
+
+### Wednesday 4 November
+- 09:00Kick-offHardware tour, find a team, start building.
+- 10:00Intro to cobots, dogs, drones and rovers
+- 11:00Factory Academia
+- 18:30Riso Scotti meets the Hackathon
+- OvernightHacking continues through the nightThe spaces stay open all night until Thursday at 21:00, with free entry and exit.
+
+### Thursday 5 November
+- 09:00–16:00BuildRalph joins the tables after his 10:00 talk.
+- 10:00Talk by Ralph Johnson (SpaceXAI)Grok models, API, Grok Voice, Grok Bots.
+- 11:00Meet the MESetAsUsing Grok Bots for everything.
+- 16:00–19:00Project evaluation and pitches
+- 21:00Awards ceremony
+All times are Rome time (CET).
+
+Speaker
+## With us on Thursday
+
+### Ralph Johnson
+SpaceXAI team
+Joins on Thursday: talk at 10:00 on the models and the API, then stays with builders at the tables.
+
+Teams
+## Three ways to take part
+
+- 1
+### Register a team
+Sign in, create your team (name and a short description) and you immediately get its secret code. It stays visible to every member on your dashboard. Share it with the people you want: a team has 4 to 6 members.
+- 2
+### Join a team
+Got a code from a teammate? Sign in, choose Join a team and enter it. If the code is wrong, no longer active, or the team is full, you get a clear message.
+- 3
+### I'm looking for a team
+On your own? Mark yourself as looking for a team and add how to reach you. Teams with room can see your name, profile and note, and send you their code.
+### The rules
+- 01
+### Sign in with your Luma email
+Use the same email you used to register on Luma. Only guests the organisers have approved on Luma can sign in (not waitlist or pending); we send a one-time code to that address.
+- 02
+### Register a team, join one, or look for one
+Register a team and get its secret code, join a team by entering the code a teammate shares with you, or register as looking for a team so teams with room can find you. Registering a team gives priority for participation confirmation.
+- 03
+### Teams of 4 to 6
+A team needs at least 4 people to count as formed. At 6 members it closes automatically and the code stops working; if someone leaves, it opens again.
+- 04
+### One team at a time, and you can leave
+You can be in one team only. You can leave whenever you want before the lock. If the person who created the team leaves, the earliest-joined member takes over; a team with nobody left is removed.
+- 05
+### Teams lock on 2 November 2026 at 23:59 (Rome time)
+This is also the end of registration. After that moment nobody can register, join or leave a team. Sort out your team before then.
+- 06
+### Guaranteed seats for teams of 4+
+When teams lock, every member of a team with 4 or more people has a guaranteed seat. Everyone else (smaller teams, solo, available) gets the remaining seats, up to 100 in total, first come, first served by Luma registration time.
+[Create or Join a Team](/register)[Read the full rules](/rules)
+
+Jury
+## Who judges the projects
+
+- 
+### Luca Bianchi
+- 
+LC
+### Lorenzo Cerri
+- 
+AR
+### Alessandro Rano
+- 
+AG
+### Alberto Giusti
+- 
+CP
+### Claudio Peroni
+- 
+### Ralph Johnson
+SpaceXAI team
+- 
+FP
+### Federico Pellegrini
+
+### Evaluation criteria
+To be announced
+We will publish this here and on Luma.
+
+Practical info
+## Before you come
+
+- Teams of 4 to 6 (see how teams work below).
+- Bring your laptop.
+- API credits provided.
+- Capacity capped at 100.
+- Registration on Luma, by approval.
+Currently full: the waitlist is open.
+[Join the waitlist on Luma(opens in a new tab)](https://luma.com/spacexai-z1ys)
+
+Venue
+## At the museum
+
+### Ctrl+Alt Museum
+A retro computing museum run by comPVter, a nonprofit.Via Gragnani, 18, 27100 Pavia PV, Italy
+[Open in Google Maps(opens in a new tab)](https://www.google.com/maps/search/?api=1&query=Ctrl%2BAlt%20Museum%2C%20Via%20Gragnani%2C%2018%2C%2027100%20Pavia%20PV%2C%20Italy)[Museum website(opens in a new tab)](https://ctrlalt.museum)
+
+### Getting there
+- 200 m from Pavia train station.
+- About 25 minutes by train from Milano Rogoredo.
+- The spaces stay open all night until Thursday at 21:00, with free entry and exit.
+
+With the support of
+## Sponsors
+
+### Organized by
+- 
+
+- 
+
+- 
+
+- 
+
+- 
+
+- 
+
+- 
+
+- 
+
+- 
+
+### Become a sponsor
+Interested in supporting the builders at the museum? Get in touch with the organizers.
+
+Sponsorship contact to be announced.[Event page on Luma(opens in a new tab)](https://luma.com/spacexai-z1ys)
+
+Hosts
+## The people behind it
+
+- Luca Bianchi
+- 
+PhotoFederico Pellegrini
+- 
+PhotoMarco D'Angelo
+
+## See you in Pavia
+[Join the waitlist on Luma(opens in a new tab)](https://luma.com/spacexai-z1ys)
+
+Grok Hackathon at the Museum
+4–5 November 2026 · Ctrl+Alt Museum, Via Gragnani, 18, 27100 Pavia PV, Italy
+SpaceXAI for Milan, Italy
+- [Tracks](/tracks)
+- [Team rules](/rules)
+- [Luma page(opens in a new tab)](https://luma.com/spacexai-z1ys)
+- [Ctrl+Alt Museum(opens in a new tab)](https://ctrlalt.museum)
