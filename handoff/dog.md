@@ -111,7 +111,7 @@ Staff told us the dog was **modified**: it originally needed ROS, and they chang
 | Connect (no motion) | supported | Probe 12:54/12:55 (1.73 s); 5 of 5 in session 13:33–13:37 (2.05–2.69 s) |
 | Video / front camera | supported | 1280×720 frames, `evidence/dog/go2_frame_20261104-125502.jpg`, session photos `hac3-133322_*` |
 | Fresh status reading | supported | sport state 161 msgs in 8 s (~20 Hz); `lowstate`, `multiplestate` ~1 Hz |
-| Stand / sit | readback supported | Standing confirmed (mode 1, 0.32 m). StandUp not exercised (already standing). **StandDown never sent to the real dog.** |
+| Stand up / lie down | supported | Joystick 15:00–15:04: StandDown (soft lie-down) 3 of 3, StandUp + BalanceStand after Re-arm. StandDown replies after > 3 s (posture timeout now 8 s). |
 | Velocity move (`Move`) | supported | `--step move`: 0.2 m/s × 1 s → 0.214 m, ~4 cm sideways, stop verified (13:37) |
 | Obstacle avoidance on/off + readback | readback supported | `obstaclesAvoidSwitch = true` (state) and service query = true. Switching not tested. |
 | Plain `Move` respects avoidance | unknown | Not tested, ask staff |
@@ -141,12 +141,12 @@ Mitigation for the skipped steps: speeds ≤ 0.3 m/s, staff controller always re
 
 Bug found and fixed before the session: the photo temp file `.jpg.tmp` was rejected by OpenCV; it is now `.tmp_<name>.jpg`.
 
-Not on the real dog yet: the browser joystick (built and reviewed, 22 tests on a simulated dog), `--step rest`, any StandDown.
+Done on the real dog (15:00–15:04): browser joystick driving, live camera, STOP → soft lie-down (3 of 3), Re-arm → Stand up, head light, **stop after stick release: median 0.08 s, max 0.91 s (15 stops)**. Not yet on the real dog: command expiry (link loss while walking), a safety trip, routes.
 
 ## 7. Safety
 
 - Dog only in our booked slot, **with staff present**, staff controller ready. **The staff controller is the primary stop.**
-- **Every operator STOP = stop walking + lie down softly** (StopMove, then StandDown, sport api 1005). **Damp (api 1001, rough drop) is never sent.** The soft lie-down is untested on the real dog.
+- **Every operator STOP = stop walking + lie down softly** (StopMove, then StandDown, sport api 1005). **Damp (api 1001, rough drop) is never sent.** The soft lie-down works on the real dog (3 of 3).
 - Automatic stops (stick release, 300 ms dead-man, WebSocket loss, page blur) = StopMove only; the dog stays standing.
 - **Automatic safety thresholds** (on by default): fence 3 m around home, speed > 0.6 m/s for 0.3 s, tilt > 25° for 0.2 s, route travel > planned × 1.3 + 0.3 m → soft lie-down (rest) + motion lock. Home is kept across Re-arm; outside the fence, driving is refused until "Set home here". Joystick checkbox can switch them off (logged, banner); they come back ON after every Re-arm and restart. Odometry jumps > 0.5 m block motion until "Set home here". Odometry drifts; untested on the real dog. Details: `docs/dog.md` §7.
 - Speed caps: joystick 0.3 m/s forward/back, 0.2 m/s sideways, 0.6 rad/s yaw; RealDog 0.5 / 0.3 / 0.8. Unknown state refuses to walk. A timed-out move is never retried and locks the adapter. Every vendor call has a timeout.

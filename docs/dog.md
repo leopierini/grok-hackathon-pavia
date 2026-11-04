@@ -20,15 +20,16 @@ Last updated: 2026-11-04. Times below are local (UTC+1) unless marked UTC. `evid
 | WebRTC connect (no motion) | ✅ Probe: 1.7 s, 2 of 3 tries (try 1 timed out). Supervised session: 5 of 5 connects, 2.05–2.69 s |
 | Camera photo | ✅ 1280×720 frames saved (probe 12:54, 12:55; session 13:33) |
 | Status readback | ✅ Sport state ~20 Hz, battery, settings |
-| Halt proven | 🟡 Halt while still ✅ 0.154 s · halt mid-walk **skipped by team decision, assumed, NOT tested** |
+| Halt proven | ✅ Still: 0.154 s · **mid-walk (joystick release, 15 stops): median 0.08 s, max 0.91 s to stationary** (15:00–15:04) |
 | Short supervised move | ✅ 0.2 m/s × 1 s → 0.214 m, stop verified |
-| Soft lie-down (STOP = StopMove + StandDown) | 🟡 In code, tested only against fake/simulated dogs. **StandDown has never been sent to the real dog.** |
+| Soft lie-down (STOP = StopMove + StandDown) | ✅ 3 of 3 on the real dog (joystick STOP/REST). StandDown replies only after > 3 s → posture timeout raised to 8 s |
 | Command expiry (what happens when commands stop) | ⏳ Not tested (step 6 skipped) |
-| Browser joystick | 🟡 Built, reviewed, 22 tests on a simulated dog. **Not yet used in a real browser, not yet on the real dog.** |
+| Browser joystick | ✅ Used on the real dog in Chrome (15:00–15:04): drive, live camera, STOP, Re-arm, Stand up, head light |
+| Safety thresholds | 🟡 Built + 2 reviews, tested on the simulator; no trip seen on the real dog yet (never left the fence) |
 | room_2 route | ⏳ Route file exists but `calibrated: false` |
 | FakeDog (HAC-1) | ✅ Done, 30 tests |
 | RealDog adapter + session script | ✅ 17 logic tests (fake connection). Steps 1–4 run on the real dog |
-| `pytest tests/dog` | ✅ 69 passed (30 fake dog + 17 RealDog logic + 22 joystick), 2026-11-04 |
+| `pytest tests/dog` | ✅ 105 passed, 2026-11-04 |
 
 ---
 
@@ -214,15 +215,15 @@ Status: `supported` / `unsupported` / `unknown`. Add evidence (date, output, pho
 | Connect (no motion) | supported | Probe 12:54 + 12:55 (1.73 s); 5 of 5 in the 13:33–13:37 session (2.05–2.69 s). First probe try timed out (see §8). |
 | Video / front camera | supported | 1280×720 BGR frame, `evidence/dog/go2_frame_20261104-125502.jpg`; `capture_frame` photos in session 13:33 |
 | Fresh status reading | supported | `rt/lf/sportmodestate` 161 msgs in 8 s; `lowstate` + `multiplestate` ~1 Hz |
-| Stand / sit | standing readback supported | `prepare` confirmed standing (mode 1, 0.32 m). StandUp not exercised (already standing). **StandDown (soft lie-down) never sent to the real dog.** |
+| Stand up / lie down | supported | Joystick: StandDown 3 of 3 (dog lay down softly; reply takes > 3 s, so it counted as a timeout and the backup send went out). Stand up (StandUp + BalanceStand) worked after Re-arm, 14:03 UTC. |
 | Velocity move (`Move`) | supported | `--step move`: 0.2 m/s for 1 s → 0.214 m, ~4 cm sideways drift, stop verified (2026-11-04 13:37) |
 | Obstacle avoidance on/off + readback | readback supported | `multiplestate.obstaclesAvoidSwitch = true` and service query = true. Switching not tested (already on). |
 | Does plain `Move` respect avoidance? | unknown | Not tested. Ask staff. |
 | `halt` / `StopMove` while still | supported | Accepted in 0.154 s, stays standing |
-| `halt` / `StopMove` mid-route | unknown | Skipped by team decision (step 5), assumed to work |
+| `halt` / `StopMove` mid-walk | supported | 15 joystick releases (StopMove): stationary after median 0.08 s, max 0.91 s; speed at release up to 0.39 m/s |
 | Command expiry (commands stop arriving) | unknown | Skipped by team decision (step 6) |
 | Odometry (`rt/sportmodestate`) | supported (read) | `position` [2.49, -1.52, 0.31], `velocity`, IMU `rpy` |
-| Head light (VUI brightness) | readback only | `multiplestate.brightness = 0`. Set (api 1005) not tried on the real dog. |
+| Head light (VUI brightness) | supported | Joystick: set 0 → 5 → 6 → 0 (api 1005), read back on connect (api 1006) |
 | Speaker / mic | unknown | |
 | LiDAR | unknown | |
 
@@ -393,6 +394,14 @@ Limitations:
 ## 9. Session log
 
 Newest first. Date, who, what was done, result.
+
+### 2026-11-04 15:00–15:04 local: First joystick session on the real dog (Leonardo, staff present)
+- Joystick started before the cable was in → `connect_failed`; after plugging in, **Re-arm** connected in 2.4 s. Home set automatically.
+- Drove with keys/sticks at ≤ 0.3 m/s. **15 stick releases → StopMove: dog stationary after median 0.08 s, max 0.91 s** (this covers the skipped "halt mid-walk" test). Peak measured speed 0.39 m/s (gait peaks above the 0.3 command cap; safety limit is 0.6).
+- **STOP / REST → soft lie-down worked 3 of 3.** The StandDown reply arrives only after > 3 s, so each logged a timeout and the backup send went out. Fix: posture commands (StandUp/StandDown/BalanceStand) now wait up to 8 s (`POSTURE_TIMEOUT_S`). **Restart the joystick to load it.**
+- Re-arm → **Stand up** worked (StandUp + BalanceStand). Head light 0 → 5 → 6 → 0 worked. Live camera worked.
+- Stop latency log: `evidence/dog/joystick.jsonl`. No safety trip (stayed inside the 3 m fence).
+- Still untested on the real dog: command expiry (link loss while walking), safety trips, routes.
 
 ### 2026-11-04 afternoon: Browser joystick, tests, docs (Leonardo + agents)
 - Built `patrol/dog/joystick.py` + `joystick.html` and the simulated connection `patrol/dog/sim_conn.py` (used by `--fake` and by the tests). Added head light control (VUI 1005/1006) and the rule **every operator STOP = StopMove + StandDown** (`RealDog.rest()`), never Damp.

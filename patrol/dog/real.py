@@ -50,6 +50,8 @@ MAX_VY = 0.3      # m/s sideways
 MAX_VYAW = 0.8    # rad/s
 MAX_SEGMENT_S = 10.0
 
+POSTURE_TIMEOUT_S = 8.0      # StandUp / StandDown / BalanceStand reply when the motion is done
+POSTURE_CMDS = {"StandUp", "StandDown", "BalanceStand"}
 ODOM_JUMP_M = 0.5            # position change between two ~20 Hz readings that can't be real walking
 STATE_STALE_S = 1.0          # sport state older than this => unknown
 FRAME_MAX_AGE_S = 5.0        # plan §6.3
@@ -856,11 +858,12 @@ class RealDog:
             await asyncio.sleep(0.05)
         return cond()
 
-    async def _request(self, topic: str, options: dict, lock_on_timeout: bool) -> dict:
+    async def _request(self, topic: str, options: dict, lock_on_timeout: bool,
+                       timeout: float | None = None) -> dict:
         try:
             return await asyncio.wait_for(
                 self._conn.datachannel.pub_sub.publish_request_new(topic, options),
-                self._command_timeout_s,
+                timeout if timeout is not None else self._command_timeout_s,
             )
         except asyncio.TimeoutError as e:
             if lock_on_timeout:
@@ -880,7 +883,10 @@ class RealDog:
             opts["priority"] = 1
         if name == "Move":
             self._last_move_cmd_t = time.monotonic()
-        resp = await self._request(self._topics()["SPORT_MOD"], opts, lock_on_timeout)
+        # Posture changes reply only when finished (real Go2: StandDown > 3 s), so they get
+        # a longer limit; Move/StopMove keep the short command timeout.
+        timeout = max(POSTURE_TIMEOUT_S, self._command_timeout_s) if name in POSTURE_CMDS else None
+        resp = await self._request(self._topics()["SPORT_MOD"], opts, lock_on_timeout, timeout)
         code = self._resp_code(resp)
         if code not in (0, None):
             raise AdapterError("device_error", f"{name} returned code {code}")
