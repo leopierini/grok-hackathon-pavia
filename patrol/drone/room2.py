@@ -37,8 +37,10 @@ def main(argv: list[str] | None = None) -> int:
     except AdapterError as exc:
         print(f"{exc.code}: {exc.detail}")
         return 2
+    cm = int(profile["viewpoint"]["forward_cm"])
+    settle = int(profile["settle_s"])
     print(
-        "room_2_view_v1: takeoff, forward 20 cm, photo, back 20 cm, land on the same mark"
+        f"room_2_view_v1: takeoff, hold {settle}s, forward {cm} cm, photo, back {cm} cm, land"
     )
     if not args.arm:
         print("not armed; no motors")
@@ -65,7 +67,7 @@ def fly(profile: dict, output_dir: Path) -> int:
     code = 1
     forward = int(profile["viewpoint"]["forward_cm"])
     move_timeout = float(profile["command_timeout_s"])
-    deadline = time.monotonic() + float(profile["max_flight_s"])
+    deadline = 0.0
     try:
         if sdk.query("command") != "ok":
             print("sdk did not enter command mode")
@@ -76,6 +78,7 @@ def fly(profile: dict, output_dir: Path) -> int:
             if battery < reserve:
                 print(f"refusing to fly below {reserve}%")
             else:
+                _query_optional(sdk, "downvision 0")
                 print(sdk.query("streamon"))
                 streaming = True
                 time.sleep(0.5)
@@ -84,6 +87,9 @@ def fly(profile: dict, output_dir: Path) -> int:
                 if sdk.query("takeoff", timeout=float(profile["takeoff_timeout_s"])) != "ok":
                     print("takeoff was not confirmed; no second attempt")
                 else:
+                    deadline = time.monotonic() + float(profile["max_flight_s"])
+                    _settle(sdk, float(profile["settle_s"]), deadline)
+                    _query_optional(sdk, f"speed {int(profile['speed_cm_s'])}")
                     _expire(deadline)
                     print(f"forward {forward} cm")
                     forward_sent = True
@@ -144,6 +150,25 @@ def _land(sdk, on_patch: bool) -> bool:
     if on_ground:
         print("on the ground, landing mark not confirmed")
     return False
+
+
+def _settle(sdk, seconds: float, deadline: float) -> None:
+    """Hover until the body is level. A move during the climb comes out short and curved."""
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        _expire(deadline)
+        height = sdk.query("height?", timeout=3)
+        print(f"settling, height {height} cm")
+        pause = min(0.5, end - time.monotonic())
+        if pause > 0:
+            time.sleep(pause)
+
+
+def _query_optional(sdk, command: str) -> None:
+    try:
+        print(f"{command}: {sdk.query(command, timeout=3)}")
+    except Exception as exc:
+        print(f"{command} skipped: {exc}")
 
 
 def _expire(deadline: float) -> None:
