@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Go2 Joystick</title>
+<style>
+  :root {
+    --bg: #111418; --panel: #1b2027; --line: #2c333d; --text: #e6e9ee; --muted: #8b95a3;
+    --ok: #3ccf6e; --bad: #ff5b5b; --unk: #f0b429; --accent: #4aa3ff; --stop: #d61f1f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.35 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { padding: 12px 16px 24px; overflow-x: hidden; user-select: none; -webkit-user-select: none; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+  header h1 { font-size: 18px; margin: 0 8px 0 0; }
+  .badge { padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--line); }
+  .badge.ok { background: #17442a; color: var(--ok); }
+  .badge.bad { background: #4a1717; color: var(--bad); }
+  .badge.unk { background: #47380f; color: var(--unk); }
+  .badge.fake { background: #22324a; color: var(--accent); }
+  #lockbar { display: none; margin-bottom: 10px; padding: 10px 14px; border-radius: 8px;
+    background: #4a1717; color: #ffd0d0; font-weight: 600; border: 1px solid var(--bad); }
+  #blockbar { margin-bottom: 10px; color: var(--unk); min-height: 1.3em; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 12px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+  #video { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; border-radius: 6px; display: block; }
+  .stopbar { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 10px; }
+  button { font: inherit; color: var(--text); background: #2a313b; border: 1px solid #3a4350;
+    border-radius: 8px; padding: 9px 12px; cursor: pointer; touch-action: manipulation; }
+  button:hover:not(:disabled) { background: #343c48; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  #stop { background: var(--stop); border-color: #ff6b6b; font-size: 22px; font-weight: 800;
+    padding: 18px 10px; letter-spacing: .5px; }
+  #stop:hover { background: #ee2a2a; }
+  #rest { background: #6b2a10; border-color: #b4521f; font-weight: 700; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  select, input[type=range] { accent-color: var(--accent); }
+  select { font: inherit; color: var(--text); background: #2a313b; border: 1px solid #3a4350; border-radius: 6px; padding: 7px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td { padding: 3px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { color: var(--muted); width: 42%; }
+  .v-true { color: var(--ok); font-weight: 600; } .v-false { color: var(--bad); font-weight: 600; }
+  .v-null { color: var(--unk); }
+  #latency { font-size: 22px; font-weight: 700; margin: 4px 0 8px; }
+  #events { max-height: 160px; overflow-y: auto; font: 12px/1.35 ui-monospace, Menlo, monospace; color: var(--muted);
+    margin-top: 8px; overflow-wrap: anywhere; }
+  #events .warn { color: var(--unk); } #events .error { color: var(--bad); }
+  .drive { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; margin-top: 12px; }
+  @media (max-width: 560px) { .drive { grid-template-columns: 1fr 1fr; } .speed { grid-column: 1 / -1; order: 3; } }
+  .stickwrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .stick { position: relative; width: min(200px, 40vw); aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle, #252c35 0%, #1a1f26 70%); border: 2px solid #3a4350; touch-action: none; }
+  .stick.h::before { content: ""; position: absolute; left: 8%; right: 8%; top: 50%; height: 2px; background: #3a4350; }
+  .knob { position: absolute; left: 50%; top: 50%; width: 34%; aspect-ratio: 1; border-radius: 50%;
+    background: var(--accent); transform: translate(-50%, -50%); box-shadow: 0 2px 10px #0008; pointer-events: none; }
+  .stick.active { border-color: var(--accent); }
+  .label { color: var(--muted); font-size: 12px; text-align: center; }
+  .speed { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 150px; }
+  #speedval { font-weight: 700; }
+  .keys { color: var(--muted); font-size: 12px; margin-top: 10px; }
+  kbd { background: #2a313b; border: 1px solid #3a4350; border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 11px; }
+  #viewbar { display: none; margin-bottom: 10px; padding: 10px 14px; border-radius: 8px; background: #22324a;
+    color: #cfe3ff; font-size: 16px; font-weight: 700; border: 2px solid var(--accent); }
+  #viewbar.flash { animation: flash .6s ease-in-out 2; }
+  @keyframes flash { 50% { background: #3a5a8a; } }
+  #claim { margin-left: 10px; background: var(--accent); color: #06121f; border-color: #8cc4ff; font-weight: 800; }
+  #b-role { font-size: 15px; padding: 6px 14px; }
+  #b-role.ok { background: #17442a; color: var(--ok); border: 2px solid var(--ok); }
+  #b-role.unk { background: #47380f; color: var(--unk); border: 2px solid var(--unk); }
+  #safetyoff { display: none; margin-bottom: 10px; padding: 12px 14px; border-radius: 8px; background: #7a0f0f;
+    color: #fff; font-weight: 800; font-size: 16px; border: 2px solid #ff8080; letter-spacing: .3px; }
+  #tripbar { display: none; margin-bottom: 10px; padding: 10px 14px; border-radius: 8px; background: #5a1a00;
+    color: #ffd9c2; font-weight: 700; border: 2px solid #ff8a3d; }
+  #events .trip { color: #fff; background: #8a1010; font-weight: 700; padding: 2px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Go2 Joystick</h1>
+  <span id="b-fake" class="badge fake" style="display:none">FAKE / SIMULATED</span>
+  <span id="b-ws" class="badge bad">page offline</span>
+  <span id="b-dog" class="badge unk">dog ?</span>
+  <span id="b-role" class="badge">role ?</span>
+  <span id="b-lock" class="badge">motion ?</span>
+  <span id="b-safe" class="badge">safety ?</span>
+</header>
+<div id="safetyoff">SAFETY THRESHOLDS OFF: no automatic fence / speed / tilt / overshoot stops. STOP, Q and the staff controller still work.</div>
+<div id="tripbar"></div>
+<div id="viewbar">VIEW ONLY: press Take control to drive from this tab (STOP works here anyway).
+  <button id="claim">Take control</button></div>
+<div id="lockbar"></div>
+<div id="blockbar"></div>
+
+<div class="grid">
+  <div class="panel">
+    <img id="video" alt="live camera" src="/video.mjpg">
+    <div class="stopbar">
+      <button id="stop" title="Space or Q">STOP (lie down softly)</button>
+      <button id="rest" title="Q">REST (lie down slowly)</button>
+    </div>
+    <div class="row">
+      <button id="stand" class="ctl">Stand up</button>
+      <button id="rearm" class="ctl">Re-arm (reconnect)</button>
+      <button id="photo" class="ctl">Photo</button>
+      <select id="zone" class="ctl"><option>entrance</option><option selected>room_2</option><option>display</option></select>
+      <button id="sethome" class="ctl" title="Centre the fence on the dog's current spot (stationary only)">Set home here</button>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="safety" class="ctl" checked> Safety thresholds (fence / speed / tilt / overshoot)</label>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="light" class="ctl"> Head light</label>
+      <input type="range" id="bright" class="ctl" min="1" max="10" step="1" value="5">
+      <span id="brightval">5</span>/10
+    </div>
+    <div class="drive">
+      <div class="stickwrap"><div class="stick" id="lstick"><div class="knob"></div></div>
+        <div class="label">WALK: forward/back + sideways<br><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div></div>
+      <div class="speed">
+        <div class="label">Speed</div>
+        <input type="range" id="speed" min="10" max="100" step="5" value="50">
+        <div><span id="speedval">50</span>%</div>
+        <div class="label" id="speedabs"></div>
+      </div>
+      <div class="stickwrap"><div class="stick h" id="rstick"><div class="knob"></div></div>
+        <div class="label">TURN (yaw)<br><kbd>J</kbd><kbd>L</kbd> or <kbd>&larr;</kbd><kbd>&rarr;</kbd></div></div>
+    </div>
+    <div class="keys"><kbd>Space</kbd> / <kbd>Q</kbd> = STOP, lie down softly (top priority) &middot;
+      release = stop, stay standing &middot; leaving the tab or losing focus stops &middot;
+      the staff controller is always the primary stop.</div>
+  </div>
+
+  <div class="panel">
+    <div class="label" style="text-align:left">Last stop latency (stop command to stationary)</div>
+    <div id="latency">&ndash;</div>
+    <table id="status"></table>
+    <div id="events"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const S = { ws: null, role: "view", caps: { vx: 0.3, vy: 0.2, vyaw: 0.6 }, keys: new Set(),
+              left: { x: 0, y: 0 }, right: { x: 0 }, sentZero: true, lightSynced: false, status: null };
+
+  // ---------------------------------------------------------------- websocket
+  function send(obj) {
+    if (S.ws && S.ws.readyState === 1) { S.ws.send(JSON.stringify(obj)); return true; }
+    return false;
+  }
+  function connect() {
+    const ws = new WebSocket(`ws://${location.host}/ws`);
+    S.ws = ws;
+    ws.onopen = () => { setBadge("b-ws", "page online", "ok"); };
+    ws.onmessage = (ev) => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.t === "hello") { S.role = m.role; S.caps = m.caps; if (m.fake) $("b-fake").style.display = ""; updateSpeed(); updateRole(); }
+      else if (m.t === "role") { S.role = m.role; if (m.role !== "control") releaseAll("demoted"); updateRole(); }
+      else if (m.t === "status") { S.role = m.role; render(m); }
+      else if (m.t === "event") { addEvent(m.msg, m.level); }
+    };
+    ws.onclose = () => {
+      releaseAll("ws closed");
+      setBadge("b-ws", "page offline: reconnecting", "bad");
+      S.role = "view"; updateRole();
+      setTimeout(connect, 1000);
+    };
+    ws.onerror = () => { try { ws.close(); } catch {} };
+  }
+
+  // ---------------------------------------------------------------- stop (always soft: rest)
+  function stopNow(kind) {
+    S.keys.clear(); resetSticks();
+    const ok = send({ t: kind });            // "stop" or "rest": both call RealDog.rest()
+    S.sentZero = true;
+    if (ok) addEvent(`STOP sent (${kind}): lie down softly`, "warn");
+    else addEvent("STOP NOT SENT: page offline. USE THE STAFF CONTROLLER (or Q in the server terminal)", "error");
+  }
+  $("stop").addEventListener("click", (e) => { stopNow("stop"); e.currentTarget.blur(); });
+  $("rest").addEventListener("click", (e) => { stopNow("rest"); e.currentTarget.blur(); });
+
+  // ---------------------------------------------------------------- other buttons
+  const btn = (id, fn) => $(id).addEventListener("click", (e) => { fn(); e.currentTarget.blur(); });
+  btn("stand", () => send({ t: "stand" }));
+  btn("rearm", () => send({ t: "rearm" }));
+  btn("photo", () => send({ t: "photo", zone: $("zone").value }));
+  btn("claim", () => send({ t: "claim" }));
+  btn("sethome", () => send({ t: "set_home" }));
+  $("safety").addEventListener("change", (e) => {
+    const on = e.target.checked;
+    if (!on && !confirm("Turn OFF the automatic safety thresholds (fence, speed, tilt, route overshoot)?\n" +
+                        "STOP / Q and the staff controller keep working.")) { e.target.checked = true; e.target.blur(); return; }
+    send({ t: "safety", enabled: on }); e.target.blur();
+  });
+  let lastHint = 0;
+  function viewHint() {                       // a view-only tab tried to drive: say why, don't ignore silently
+    const now = Date.now(); if (now - lastHint < 1500) return; lastHint = now;
+    addEvent("View only: press Take control to drive from this tab", "warn");
+    const vb = $("viewbar"); vb.classList.remove("flash"); void vb.offsetWidth; vb.classList.add("flash");
+  }
+  $("light").addEventListener("change", (e) => {
+    send({ t: "light", level: e.target.checked ? Number($("bright").value) : 0 }); e.target.blur();
+  });
+  $("bright").addEventListener("input", (e) => { $("brightval").textContent = e.target.value; });
+  $("bright").addEventListener("change", (e) => {
+    if ($("light").checked) send({ t: "light", level: Number(e.target.value) });
+    e.target.blur();
+  });
+  $("speed").addEventListener("input", updateSpeed);
+  $("speed").addEventListener("change", (e) => e.target.blur());
+  $("zone").addEventListener("change", (e) => e.target.blur());
+  function speedFrac() { return Number($("speed").value) / 100; }
+  function updateSpeed() {
+    const f = speedFrac(); $("speedval").textContent = Math.round(f * 100);
+    $("speedabs").textContent = `${(f * S.caps.vx).toFixed(2)} m/s · ${(f * S.caps.vy).toFixed(2)} m/s · ${(f * S.caps.vyaw).toFixed(2)} rad/s`;
+  }
+
+  // ---------------------------------------------------------------- keyboard
+  // Keys are tracked by PHYSICAL key (e.code), so Option/Shift can't change the
+  // character between keydown and keyup and leave a key "stuck" as held.
+  const MOVE_CODES = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyJ: "j", KeyL: "l",
+                       ArrowLeft: "arrowleft", ArrowRight: "arrowright" };
+  const MODIFIERS = new Set(["Meta", "Alt", "Control", "OS"]);
+  window.addEventListener("keydown", (e) => {
+    // STOP keys first, ALWAYS, even with modifiers held.
+    if (e.code === "Space") { e.preventDefault(); if (!e.repeat) stopNow("stop"); return; }
+    if (e.code === "KeyQ") { e.preventDefault(); if (!e.repeat) stopNow("rest"); return; }
+    // Any modifier (Cmd can swallow keyups on macOS): drop every held key, drive nothing.
+    if (MODIFIERS.has(e.key) || e.metaKey || e.ctrlKey || e.altKey) { S.keys.clear(); return; }
+    const k = MOVE_CODES[e.code];
+    if (k) { e.preventDefault(); if (S.role !== "control") { viewHint(); return; } S.keys.add(k); }
+  }, true);
+  window.addEventListener("keyup", (e) => {
+    if (e.code === "Space") { e.preventDefault(); return; }  // never "click" a focused button
+    if (MODIFIERS.has(e.key)) { S.keys.clear(); return; }
+    const k = MOVE_CODES[e.code];
+    if (k) { e.preventDefault(); S.keys.delete(k); }
+  }, true);
+
+  // ---------------------------------------------------------------- virtual sticks
+  function makeStick(el, horizontalOnly, out) {
+    const knob = el.querySelector(".knob");
+    let id = null;
+    function setFrom(ev) {
+      const r = el.getBoundingClientRect();
+      const rad = r.width / 2;
+      let dx = (ev.clientX - (r.left + rad)) / rad, dy = (ev.clientY - (r.top + rad)) / rad;
+      if (horizontalOnly) dy = 0;
+      const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
+      const dead = 0.08;
+      out.x = Math.abs(dx) < dead ? 0 : dx; out.y = Math.abs(dy) < dead ? 0 : dy;
+      knob.style.left = `${50 + dx * 50 * 0.75}%`; knob.style.top = `${50 + dy * 50 * 0.75}%`;
+    }
+    el.addEventListener("pointerdown", (ev) => {
+      if (S.role !== "control") { viewHint(); return; }
+      id = ev.pointerId; el.setPointerCapture(id); el.classList.add("active"); setFrom(ev); ev.preventDefault();
+    });
+    el.addEventListener("pointermove", (ev) => { if (ev.pointerId === id) setFrom(ev); });
+    const end = (ev) => { if (ev.pointerId !== id) return; id = null; reset(); };
+    el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+    el.addEventListener("lostpointercapture", end);
+    function reset() { out.x = 0; out.y = 0; knob.style.left = "50%"; knob.style.top = "50%"; el.classList.remove("active"); id = null; }
+    return reset;
+  }
+  const resetL = makeStick($("lstick"), false, S.left);
+  const resetR = makeStick($("rstick"), true, S.right);
+  function resetSticks() { resetL(); resetR(); }
+
+  function vector() {
+    const has = (k) => S.keys.has(k) ? 1 : 0;
+    const clamp = (v) => Math.max(-1, Math.min(1, v));
+    return {
+      x: clamp(has("w") - has("s") - S.left.y),                         // stick up = forward
+      y: clamp(has("a") - has("d") - S.left.x),                         // stick left = +y (left)
+      yaw: clamp(has("j") + has("arrowleft") - has("l") - has("arrowright") - S.right.x),  // left = +yaw
+    };
+  }
+  function releaseAll(why) {
+    S.keys.clear(); resetSticks();
+    if (!S.sentZero) { send({ t: "drive", x: 0, y: 0, yaw: 0, speed: speedFrac() }); S.sentZero = true; }
+  }
+  // Send while held (~15 Hz); one zero on release. Server dead-man covers anything lost.
+  setInterval(() => {
+    if (S.role !== "control") return;
+    const v = vector();
+    if (v.x || v.y || v.yaw) { if (send({ t: "drive", ...v, speed: speedFrac() })) S.sentZero = false; }
+    else if (!S.sentZero) { send({ t: "drive", x: 0, y: 0, yaw: 0, speed: speedFrac() }); S.sentZero = true; }
+  }, 66);
+  window.addEventListener("blur", () => releaseAll("blur"));
+  window.addEventListener("pagehide", () => releaseAll("pagehide"));
+  document.addEventListener("visibilitychange", () => { if (document.hidden) releaseAll("hidden"); });
+
+  // ---------------------------------------------------------------- rendering
+  function setBadge(id, text, cls) { const b = $(id); b.textContent = text; b.className = `badge ${cls || ""}`; }
+  function fmt(v) {
+    if (v === null || v === undefined) return '<span class="v-null">unknown</span>';
+    if (v === true) return '<span class="v-true">yes</span>';
+    if (v === false) return '<span class="v-false">no</span>';
+    if (Array.isArray(v)) return v.map((x) => typeof x === "number" ? x.toFixed(2) : x).join(", ");
+    return String(v).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  }
+  function updateRole() {
+    const ctl = S.role === "control";
+    setBadge("b-role", ctl ? "YOU HAVE CONTROL" : "VIEW ONLY: press Take control", ctl ? "ok" : "unk");
+    document.querySelectorAll(".ctl").forEach((el) => { el.disabled = !ctl; });
+    $("viewbar").style.display = ctl ? "none" : "block";
+    if (ctl && S.status) $("sethome").disabled = !(S.status.stationary === true && !S.status.moving);
+  }
+  function render(s) {
+    S.status = s;
+    updateRole();
+    setBadge("b-dog", s.connected ? "dog connected" : (s.busy === "connecting" ? "connecting…" : "dog not connected"),
+             s.connected ? "ok" : (s.busy === "connecting" ? "unk" : "bad"));
+    setBadge("b-lock", s.lock ? "MOTION LOCKED" : "motion allowed", s.lock ? "bad" : "ok");
+    const lb = $("lockbar");
+    if (s.lock) { lb.style.display = "block"; lb.textContent = `MOTION LOCKED (${s.lock}). Press Re-arm to reconnect (no motion on connect), then Stand up if lying.`; }
+    else lb.style.display = "none";
+    $("blockbar").textContent = s.drive_block && !s.lock ? `Sticks inactive: ${s.drive_block}` : (s.connect_error ? `Connect error: ${s.connect_error}` : "");
+    const sf = s.safety || {};
+    // Shows the dog adapter's REAL setting. null = unknown (connecting): treat as not-OK.
+    const known = s.safety_enabled === true || s.safety_enabled === false;
+    const on = s.safety_enabled === true;
+    $("safetyoff").style.display = known && !on ? "block" : "none";
+    $("safety").disabled = !known || S.role !== "control";
+    if (known && document.activeElement !== $("safety")) $("safety").checked = on;
+    const trip = sf.last_trip;
+    const tb = $("tripbar");
+    if (trip) { tb.style.display = "block"; tb.textContent = `SAFETY TRIP: ${trip.reason}. The dog lay down softly. Re-arm, then Stand up.`; }
+    else if (on && sf.state === "outside_fence") { tb.style.display = "block"; tb.textContent = "OUTSIDE THE FENCE: driving is refused. Press 'Set home here' to accept this spot as the new home."; }
+    else tb.style.display = "none";
+    const st = !known ? ["safety ?", "unk"] : !on ? ["SAFETY OFF", "bad"] : trip ? ["SAFETY TRIPPED", "bad"]
+      : sf.state === "ok" ? ["safety OK", "ok"] : sf.state === "outside_fence" ? ["OUTSIDE FENCE", "bad"] : ["safety ?", "unk"];
+    setBadge("b-safe", st[0], st[1]);
+    const envText = !on ? "OFF (no automatic stops)" : trip ? `TRIPPED: ${trip.reason}`
+      : sf.state === "outside_fence" ? "OUTSIDE FENCE (drive refused; Set home here)" : sf.state === "ok" ? "OK" : `unknown${sf.block ? ": " + sf.block : ""}`;
+    const dist = sf.distance_from_home_m === null || sf.distance_from_home_m === undefined ? "?" : sf.distance_from_home_m.toFixed(2);
+    const lim = sf.limits || {};
+    const tilt = sf.tilt_deg ? `${sf.tilt_deg.roll.toFixed(0)} / ${sf.tilt_deg.pitch.toFixed(0)} (max ${lim.max_tilt_deg})` : null;
+    const ls = s.last_stop;
+    $("latency").textContent = ls ? (ls.stop_latency_s === null ? `not stationary within 3 s (${ls.kind})`
+      : `${ls.stop_latency_s.toFixed(3)} s  (${ls.kind}, from ${ls.speed_at_stop ?? "?"} m/s)`) : "–";
+    const rows = [
+      ["safety envelope", envText],
+      ["distance from home / radius m", `${dist} / ${sf.radius_m ?? "?"}`],
+      ["home (odometry x, y)", sf.home], ["tilt roll / pitch deg", tilt],
+      ["speed limit m/s", lim.max_speed_mps === undefined ? null : `${lim.max_speed_mps} (sustained ${lim.speed_sustain_s} s)`],
+      ["connected", s.connected], ["standing", s.standing], ["stationary", s.stationary],
+      ["avoidance (read-only)", s.avoidance], ["battery %", s.battery], ["body height m", s.body_height],
+      ["sport mode", s.mode], ["position m", s.position], ["speed m/s", s.speed], ["yaw speed rad/s", s.yaw_speed],
+      ["commanded vx, vy, yaw", s.commanded], ["moving (commanded)", s.moving],
+      ["last command age s", s.last_cmd_age_s], ["motion lock", s.lock || "none"], ["busy", s.busy || "–"],
+      ["resting", s.resting], ["head light", s.brightness === null ? null : `${s.brightness}/10`],
+      ["dead-man triggers", s.deadman_count], ["state age s", s.state_age_s], ["video frame age s", s.frame_age_s],
+      ["last photo", s.last_photo || "–"],
+    ];
+    $("status").innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${fmt(v)}</td></tr>`).join("");
+    if (!S.lightSynced && s.brightness !== null && s.brightness !== undefined) {
+      S.lightSynced = true;
+      $("light").checked = s.brightness > 0;
+      if (s.brightness > 0) { $("bright").value = s.brightness; $("brightval").textContent = s.brightness; }
+    }
+  }
+  function addEvent(msg, level) {
+    const d = document.createElement("div");
+    d.className = level || "info";
+    d.textContent = `${new Date().toLocaleTimeString()}  ${msg}`;
+    const box = $("events"); box.prepend(d);
+    while (box.childNodes.length > 40) box.removeChild(box.lastChild);
+  }
+
+  updateSpeed();
+  updateRole();
+  connect();
+})();
+</script>
+</body>
+</html>

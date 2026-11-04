@@ -1,0 +1,12 @@
+{
+  "_doc": "Route segments per zone. Velocities: vx forward m/s, vy left m/s, vyaw left-turn rad/s (positive = counter-clockwise). Hard caps in patrol/dog/real.py: vx 0.5, vy 0.3, vyaw 0.8, segment 10 s. A zone runs only if calibrated=true (set after a supervised test, HAC-4).",
+  "room_2": {
+    "calibrated": false,
+    "start_mark": "TBD: describe floor mark and heading",
+    "segments": [
+      {"vx": 0.3, "duration_s": 3.0},
+      {"vyaw": 0.5, "duration_s": 1.5},
+      {"vx": 0.3, "duration_s": 2.0}
+    ]
+  }
+}

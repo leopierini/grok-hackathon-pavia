@@ -1,0 +1,15 @@
+# Dog (Go2) module, tested 2026-11-04 on macOS, Python 3.12.15 (Homebrew).
+# System dep: brew install portaudio   (Linux: sudo apt install portaudio19-dev)
+# Install:   python3.12 -m venv .venv && .venv/bin/pip install -r requirements/dog.txt
+# NOTE: non-editable install on purpose. macOS can flag editable-install .pth files
+# as hidden, and Python then silently skips them (import fails).
+./robot-docs/sdks/go2_webrtc_connect   # unitree_webrtc_connect 2.2.0, commit e0abc57 (run robot-docs/fetch-sdks.sh)
+aiortc==1.15.0
+aioice==0.12.1
+av==17.1.0
+cryptography==50.0.2
+pyOpenSSL==26.4.0
+opencv-python==5.0.0.93
+numpy==2.5.4
+pytest==9.2.0
+aiohttp==3.14.5     # joystick web server (patrol/dog/joystick.py)
