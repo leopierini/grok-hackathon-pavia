@@ -3,7 +3,7 @@
 > Scraped on 2026-11-04 from https://pavia.grokbot.it/ (mirror: grok-hackathon-pavia.vercel.app): `/`, `/tracks`, `/rules`, plus the Luma event page https://luma.com/spacexai-z1ys.
 > `/register` and the dashboard are behind login (Luma email + OTP), so they were not scraped.
 > Raw text dumps are in `scraped/`.
-> Kickoff slides (16 pages) are merged in: see the "Kickoff slides" section at the bottom. Original at `scraped/kickoff-slides.pdf`.
+> Kickoff slides (16 pages) are merged in: see the "Kickoff slides" section at the bottom. Original at `slides/Grok-Hackathon-kickoff.pdf`.
 
 ---
 
@@ -486,7 +486,7 @@ SpaceXAI · Ctrl+Alt Museum · comPVter · SEA Vision · Riso Scotti · Radixia 
 
 ## 📑 Kickoff slides (Wed 4 Nov, "Opening", 16 pages)
 
-Source: `scraped/kickoff-slides.pdf` (text in `scraped/kickoff-slides.txt`). What's new or different compared with the website:
+Source: `slides/Grok-Hackathon-kickoff.pdf` (text in `slides/Grok-Hackathon-kickoff.txt`). What's new or different compared with the website:
 
 **Practical info**
 - **Wi-Fi: network `hackathon`, password `hackathon`**

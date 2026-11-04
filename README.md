@@ -4,7 +4,8 @@ Our team's workspace for the [Grok Hackathon](https://pavia.grokbot.it/) at Ctrl
 
 - **[hackathon info.md](./hackathon%20info.md)**: everything about the event (tracks, rules, schedule, jury, hardware, kickoff slides)
 - **[robot-docs/](./robot-docs/README.md)**: SDK index for the Unitree Go1/Go2 dogs and the cobots. Run `./robot-docs/fetch-sdks.sh` to download the SDKs
-- **scraped/**: raw dumps of the website and the kickoff slides
+- **[slides/](./slides/Grok-Hackathon-kickoff.pdf)**: kickoff slides (PDF + extracted text)
+- **scraped/**: raw text dumps of the website
 
 **Current focus:** a robotic guide dog for blind people (Unitree Go2 + Grok Voice + vision).
 Other ideas: Agent Failure Lab, LabOS.
