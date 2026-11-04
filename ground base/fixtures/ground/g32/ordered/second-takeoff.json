@@ -1,0 +1,71 @@
+[
+  {
+    "protocol_version": "2.0-draft",
+    "message_id": "msg-takeoff-1",
+    "mission_id": "demo-20261104-001",
+    "epoch": 1,
+    "seq": 1,
+    "sent_at": "2026-11-04T13:00:10.000Z",
+    "source": "ground",
+    "destination": "drone",
+    "kind": "drone.command",
+    "correlation_id": null,
+    "expires_at": "2026-11-04T13:00:10.500Z",
+    "simulated": true,
+    "payload": {
+      "command_id": "cmd-takeoff-1",
+      "action": "takeoff",
+      "primitive_id": "verified-takeoff-v1",
+      "lease_ms": 300,
+      "requested_height_m": null,
+      "beacon_epoch": 1,
+      "track_id": null
+    }
+  },
+  {
+    "protocol_version": "2.0-draft",
+    "message_id": "msg-takeoff-1-ack",
+    "mission_id": "demo-20261104-001",
+    "epoch": 1,
+    "seq": 2,
+    "sent_at": "2026-11-04T13:00:10.400Z",
+    "source": "drone",
+    "destination": "ground",
+    "kind": "command.ack",
+    "correlation_id": "msg-takeoff-1",
+    "expires_at": "2026-11-04T13:00:10.500Z",
+    "simulated": true,
+    "payload": {
+      "command_id": "cmd-takeoff-1",
+      "state": "unknown",
+      "reason_code": "timeout",
+      "observed_at": "2026-11-04T13:00:10.400Z",
+      "verified": false,
+      "observed_motion": "unknown",
+      "detail": "Reply missing. Do not send another takeoff."
+    }
+  },
+  {
+    "protocol_version": "2.0-draft",
+    "message_id": "msg-takeoff-2",
+    "mission_id": "demo-20261104-001",
+    "epoch": 1,
+    "seq": 3,
+    "sent_at": "2026-11-04T13:00:10.500Z",
+    "source": "ground",
+    "destination": "drone",
+    "kind": "drone.command",
+    "correlation_id": null,
+    "expires_at": "2026-11-04T13:00:10.500Z",
+    "simulated": true,
+    "payload": {
+      "command_id": "cmd-takeoff-2",
+      "action": "takeoff",
+      "primitive_id": "verified-takeoff-v1",
+      "lease_ms": 300,
+      "requested_height_m": null,
+      "beacon_epoch": 1,
+      "track_id": null
+    }
+  }
+]

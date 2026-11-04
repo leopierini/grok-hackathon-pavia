@@ -1,0 +1,41 @@
+{
+  "protocol_version": "2.0-draft",
+  "message_id": "msg-drone-vision-request",
+  "mission_id": "demo-20261104-001",
+  "epoch": 1,
+  "seq": 1,
+  "sent_at": "2026-11-04T13:00:10.100Z",
+  "source": "ground",
+  "destination": "vision",
+  "kind": "vision.request",
+  "correlation_id": null,
+  "expires_at": "2026-11-04T13:00:13.100Z",
+  "simulated": true,
+  "payload": {
+    "request_id": "vision-drone-001",
+    "provider": "xai",
+    "model_id": "CONFIGURE_VERIFIED_IMAGE_MODEL",
+    "prompt_version": "patrol-demo-v2.0",
+    "stage": "drone_search",
+    "frame": {
+      "frame_id": "drone-downward-001",
+      "image_ref": "artifact://demo-20261104-001/drone/downward-001.jpg",
+      "sha256": "0f0479fff4658167e274ded2e2bdc58a9cc45ebdd667c955fb2a2f636906470f",
+      "captured_at": "2026-11-04T13:00:10.000Z",
+      "camera_id": "downward",
+      "camera_epoch": 1,
+      "width_px": 320,
+      "height_px": 240,
+      "camera_frame_id": "drone/camera_downward",
+      "camera_to_body_calibration_id": "synthetic-calibration-v1",
+      "simulated": true
+    },
+    "target_description": "A person in the operator-marked closed demo area.",
+    "active_track_id": null,
+    "scene_context": {
+      "staged_demo": true,
+      "area_closed_by_operator": true
+    },
+    "max_evidence_age_ms": 3000
+  }
+}

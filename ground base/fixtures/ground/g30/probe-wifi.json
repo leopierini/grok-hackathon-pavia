@@ -1,0 +1,20 @@
+{
+  "profile_name": "wifi-lan",
+  "dog_transport": "wifi",
+  "probe_mode": "simulated",
+  "evidence": "simulated",
+  "pi_path": "second_radio",
+  "router_failed": true,
+  "actions": ["read_probe", "read_link"],
+  "links": {
+    "dog": {"up": true, "simulated": true},
+    "drone": {"up": true, "simulated": true},
+    "pi": {
+      "up": true,
+      "simulated": true,
+      "joined_tello_ap_only": false,
+      "reaches_laptop": true
+    },
+    "internet": {"up": true, "simulated": true}
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "protocol_version": "2.0-draft",
+  "message_id": "msg-ai-to-drone-proposal",
+  "mission_id": "demo-20261104-001",
+  "epoch": 1,
+  "seq": 3,
+  "sent_at": "2026-11-04T13:00:10.200Z",
+  "source": "vision",
+  "destination": "ground",
+  "kind": "motion.proposal",
+  "correlation_id": "msg-drone-vision-decision",
+  "expires_at": "2026-11-04T13:00:10.700Z",
+  "simulated": true,
+  "payload": {
+    "proposal_id": "proposal-drone-001",
+    "target_component": "drone",
+    "action": "reposition",
+    "direction_hint": "left",
+    "track_id": "target-001",
+    "evidence_frame_id": "drone-downward-001",
+    "candidate_id": null,
+    "beacon_epoch": 3,
+    "reason": "Semantic image-space proposal; requires calibrated approved primitive."
+  }
+}

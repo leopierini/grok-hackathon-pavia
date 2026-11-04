@@ -1,0 +1,20 @@
+{
+  "task_id": "GROUND-09",
+  "slot": "base.workflow",
+  "schema_version": "ground-task-v1",
+  "branches": [
+    "dispatch_dismiss",
+    "ground_clear",
+    "ground_confirmed",
+    "blocked_resolved"
+  ],
+  "fail_closed": [
+    "missing_dispatch",
+    "missing_preflight",
+    "malformed_dispatch",
+    "halt_during_route",
+    "persistence_during_route",
+    "link_loss_during_route"
+  ],
+  "notes": "Synthetic stage packs are installed only by tests and the simulation execute path."
+}

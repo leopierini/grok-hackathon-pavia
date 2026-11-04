@@ -1,0 +1,18 @@
+{
+  "zones": ["entrance", "room_2", "display"],
+  "dog_config_path": "dog.json",
+  "dog_profile_paths": {
+    "ethernet": "dog.json",
+    "wifi": "dog.wifi.json"
+  },
+  "dog_transport": "ethernet",
+  "drone_config_path": "drone.json",
+  "grok_config_path": "grok.json",
+  "profile_by_zone": {"room_2": "room_2_view_v1"},
+  "launch_tier": "floor",
+  "arrival_timeout_s": 15,
+  "flight_ready_timeout_s": 30,
+  "incident_timeout_s": 180,
+  "output_root": "../artifacts",
+  "scenario": "blocked_resolved"
+}

@@ -1,0 +1,17 @@
+{
+  "zone": "room_2",
+  "target": "a person or an object left in a marked closed area",
+  "phases": [
+    "IDLE",
+    "ASSESS",
+    "PREPARE_DOG",
+    "MOVE_DOG",
+    "WAIT_ARRIVAL",
+    "GROUND_VIEW",
+    "PREFLIGHT",
+    "INSPECT",
+    "RESOLVE",
+    "REPORT",
+    "DONE"
+  ]
+}

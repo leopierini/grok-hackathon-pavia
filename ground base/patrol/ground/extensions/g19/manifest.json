@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v2",
+  "task_id": "GROUND-19",
+  "slot": "feature.v2_beacon",
+  "factory": "patrol.ground.extensions.g19.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g19.scenarios:cases"
+}

@@ -1,0 +1,13 @@
+{
+  "frame_id": "dog-front-001",
+  "image_ref": "artifact://demo-20261104-001/dog/front-001.jpg",
+  "sha256": "3bf800f1a43b3aa52227cb6c50ec17102e7060678fd16fafd6331fce7d198b7c",
+  "captured_at": "2026-11-04T13:00:10.000Z",
+  "camera_id": "front",
+  "camera_epoch": 1,
+  "width_px": 1280,
+  "height_px": 720,
+  "camera_frame_id": "dog/camera_front",
+  "camera_to_body_calibration_id": "synthetic-calibration-v1",
+  "simulated": true
+}

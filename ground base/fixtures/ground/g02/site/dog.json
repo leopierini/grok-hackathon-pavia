@@ -1,0 +1,8 @@
+{
+  "connection_mode": "LocalSTA",
+  "interface": "ethernet0",
+  "routes_path": "../routes/room_2.json",
+  "max_route_s": 30,
+  "command_timeout_s": 2,
+  "markers": ["calibrated", "opaque"]
+}

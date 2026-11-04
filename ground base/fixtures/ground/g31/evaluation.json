@@ -1,0 +1,8 @@
+{
+  "images": [
+    {"label": "positive", "decision": "dispatch"},
+    {"label": "negative", "decision": "dismiss"},
+    {"label": "negative", "decision": "dispatch"},
+    {"label": "positive", "decision": "review"}
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "dog_range_max_m": null,
+  "drone_horizontal_max_m": null,
+  "operator_evidence": true,
+  "evidence_age_ms": 3000
+}

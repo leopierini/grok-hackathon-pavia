@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v2",
+  "task_id": "GROUND-23",
+  "slot": "feature.v2_dog_command",
+  "factory": "patrol.ground.extensions.g23.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g23.scenarios:cases"
+}

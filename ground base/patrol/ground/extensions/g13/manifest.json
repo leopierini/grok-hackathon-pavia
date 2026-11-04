@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v2",
+  "task_id": "GROUND-13",
+  "slot": "feature.v2_drone_observation",
+  "factory": "patrol.ground.extensions.g13.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g13.scenarios:cases"
+}

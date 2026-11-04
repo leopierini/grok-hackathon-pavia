@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v1",
+  "task_id": "GROUND-07",
+  "slot": "base.console",
+  "factory": "patrol.ground.extensions.g07.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g07.scenarios:cases"
+}

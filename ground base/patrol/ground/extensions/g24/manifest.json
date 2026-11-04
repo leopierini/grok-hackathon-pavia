@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v2",
+  "task_id": "GROUND-24",
+  "slot": "feature.v2_dog_ack",
+  "factory": "patrol.ground.extensions.g24.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g24.scenarios:cases"
+}

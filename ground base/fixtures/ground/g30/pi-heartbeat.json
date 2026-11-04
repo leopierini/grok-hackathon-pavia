@@ -1,0 +1,21 @@
+{
+  "protocol_version": "2.0-draft",
+  "message_id": "msg-pi-heartbeat",
+  "mission_id": "demo-20261104-001",
+  "epoch": 1,
+  "seq": 3,
+  "sent_at": "2026-11-04T13:00:10.500Z",
+  "source": "pi",
+  "destination": "ground",
+  "kind": "heartbeat",
+  "correlation_id": null,
+  "expires_at": null,
+  "simulated": true,
+  "payload": {
+    "device_id": "pi-01",
+    "uptime_ms": 120000,
+    "clock_error_ms": 15,
+    "healthy": true,
+    "last_observation_at": "2026-11-04T13:00:10.000Z"
+  }
+}
