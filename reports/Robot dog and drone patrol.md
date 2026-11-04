@@ -1,33 +1,8 @@
-# Shelve the guide dog, let Grok run the patrol
+# Let Grok run the patrol
 
 > **Team decision update (Wed 4 Nov, after this report):** we chose the **dog-carried drone** design. The Tello EDU rides on the Go2's back, and Grok launches it when the dog's own view is blocked. We rejected the "drone scouts, dog responds" design: Asylon already sells it, it makes the drone a single point of failure, and it slows event-to-arrival time. This report's conclusion still holds (Track D, Grok as operator, drone outside the core loop). The drone moves from the start of the pipeline to an escalation step inside the dog's "check". See [`project-plan.md`](../project-plan.md) for the current plan.
 
-Drop the guide dog. No quadruped guide dog is on sale yet, but the idea already has a heavily published research record on the exact hardware you have. Binghamton's AAAI-26 system is a **Unitree Go2 with GPT-4** that talks blind users to their destination. Glasgow's RoboGuide (2024) is a **Go1 with an LLM**, and it was trialled **in a museum**. A judge who knows the field will see a copy, and the idea also fits none of the hackathon's ten tracks. A robot dog plus drone patrol is a good alternative, but only in a specific form. Build it as a Track D "Robot Dog Patrol" entry. Make Grok the AI night-shift operator: it triages camera events, decides which asset to send, checks what the asset sees, and calls the caretaker in Italian. The drone, now confirmed as a **Tello EDU**, stays an optional "second look" add-on, never part of the core demo. It is the easiest drone to program from Python and it has mission pads for indoor positioning, but its video works only on its own Wi-Fi network, which forces a second network interface. The basic idea, a drone spotting something and a dog going to check, is already sold. Asylon has a reported **$17M, 5-year Securitas contract** for dogs plus drones. What nobody has productised is having an AI, not a human control room, make the dispatch decision, and that is where you can stand out. Track D scores five control-room numbers: time from event to the dog's arrival, staged anomalies verified, false alarms forwarded, alert clarity, and log completeness. The brief provides **a dog and smartphones as cameras, not drones**, and a drone improves none of those five numbers directly. So the plan that can win is a reliable phone-camera, dog and Grok loop that handles the jury's new case and is measured against a baseline. Add the drone only if it passes a go/no-go check on Thursday morning.
-
-## Quadruped guide dogs are unsold, but already published on your exact robots
-
-**Market.** No robotic guide dog with legs is sold to blind users as of November 2026. The closest commercial product is **Glidance Glide**, a two-wheeled guide with an AI agent that describes the surroundings and leads you to objects "within its line-of-sight". It also finds doors, elevators and stairs. Its orders are currently closed behind a waitlist ([Glidance](https://glidance.io)). Its 2024 pre-order price was **$1,499 plus about $40/month** ([AppleVis](https://applevis.com/comment/169229)). The other near-commercial product is the **.lumen glasses**, a wearable at about **€9,999** with no confirmed sales after CES 2026 ([EASTIN/REHADAT](https://www.eastin.eu/en/searches/products/detail/database-rehadat/id-tec_FD5DBFC4-B580-964C-956C-52F568E2849D)). Every legged system is a prototype or a field pilot:
-
-- **SJTU** built a six-legged guide on Lenovo's Daystar Bot GS and has field-tested it while working toward commercialisation ([SJTU](https://global.sjtu.edu.cn/en/news/view/1775)).
-- **Milo** (August 2026) calls itself the "world's first fully autonomous robotic guide dog". It is open source, projected to cost under $2,000, and has no voice or LLM layer ([Robotics & Automation News](https://roboticsandautomationnews.com/2026/08/04/researchers-unveil-open-source-robotic-guide-dog-designed-to-assist-blind-and-visually-impaired-people/103878/)).
-
-**Research.** The research picture is what settles the question. Binghamton's "From Woofs to Words" (AAAI-26) is the closest match to your pitch:
-
-- **Hardware and behaviour:** a Unitree Go2 with GPT-4 that asks the user's destination, plans a route and narrates the surroundings ([The Robot Report](https://www.therobotreport.com/binghamton-researchers-create-robotic-guide-dogs-that-walk-and-talk/)).
-- **User study:** seven legally blind participants, who preferred verbal plus physical guidance ([TechXplore](https://techxplore.com/news/2026-04-ai-powered-dogs-dont.html)).
-- **Limits:** one report says an expert still teleoperated the locomotion ([Galaxus](https://www.digitec.ch/en/page/guide-dog-20-this-robot-talks-and-guides-you-to-your-destination-42241)).
-
-Two years earlier, Glasgow's **RoboGuide** ran a Go1 with LLM-based answers and was trialled at the **Hunterian Museum** with RNIB Scotland ([The Engineer](https://theengineer.co.uk/content/news/roboguide-walks-and-talks-to-assist-blind-and-partially-sighted-people)). "A talking robot dog guiding a blind visitor through a museum" has therefore already been demonstrated, on your robot, in your kind of venue.
-
-The 2026 literature has moved on to narrower problems. These include deciding when a VLM should speak at all; one system that does this scores 83.8% versus 67.1% for GPT-4o on GuideDogQA ([arXiv 2610.03187](https://arxiv.org/abs/2610.03187)). Others are explaining avoidance manoeuvres ([arXiv 2610.28920](https://arxiv.org/abs/2610.28920)), personalised object search ([RoboFind, arXiv 2609.20330](https://arxiv.org/abs/2609.20330)), and head-height hazards a dog can pass under but a person cannot ([arXiv 2603.20121](https://arxiv.org/pdf/2603.20121)). Open-source Go1 guide-dog stacks also exist ([GitHub](https://github.com/nosixtools/Guide_dog_Unitree_Go1)).
-
-**Verdict.** The research overlap alone does not kill the idea. A team could still claim a new interaction design, such as silent-by-default narration or wayfinding that reads signs. Three hackathon facts do kill it:
-
-- **No track fits.** The ten tracks are proposed by companies. None is about assistive mobility, and Track D's dog seats are limited to "1–2 teams", with 1–2 slots reserved for Track A ([Grok Hackathon tracks](https://pavia.grokbot.it/tracks)).
-- **The plan conflicts with the Grok rule.** The teammate's plan uses "cloud VLMs only for on-demand" ([guide-dog-system-plan.md](../guide-dog-system-plan.md)). The rules require Grok to be "essential to how the solution works, not decorative" ([Grok Hackathon rules](https://pavia.grokbot.it/rules)).
-- **Untestable claims.** A 30-hour guide-dog demo cannot be tested safely with blind users in a museum of historic exhibits. Without those users, its safety claims cannot be checked.
-
-Keep the useful groundwork from that plan: Go2 over WebRTC, the camera stream, the dog's speaker and mic, and an independent safety stop.
+A robot dog plus drone patrol is a good project, but only in a specific form. Build it as a Track D "Robot Dog Patrol" entry. Make Grok the AI night-shift operator: it triages camera events, decides which asset to send, checks what the asset sees, and calls the caretaker in Italian. The drone, now confirmed as a **Tello EDU**, stays an optional "second look" add-on, never part of the core demo. It is the easiest drone to program from Python and it has mission pads for indoor positioning, but its video works only on its own Wi-Fi network, which forces a second network interface. The basic idea, a drone spotting something and a dog going to check, is already sold. Asylon has a reported **$17M, 5-year Securitas contract** for dogs plus drones. What nobody has productised is having an AI, not a human control room, make the dispatch decision, and that is where you can stand out. Track D scores five control-room numbers: time from event to the dog's arrival, staged anomalies verified, false alarms forwarded, alert clarity, and log completeness. The brief provides **a dog and smartphones as cameras, not drones**, and a drone improves none of those five numbers directly. So the plan that can win is a reliable phone-camera, dog and Grok loop that handles the jury's new case and is measured against a baseline. Add the drone only if it passes a go/no-go check on Thursday morning.
 
 ## "Drone spots, dog investigates" already ships; the dispatcher is the open seat
 
@@ -224,14 +199,13 @@ Log the jury's new case as a held-out row in the evaluation table.
 
 ## Conclusion: build the Track D operator, keep the drone behind a gate
 
-Two things changed in the course of this research. The guide-dog idea fails because it has already been done, on your robots and even in a museum, and because no track fits it. The dog-and-drone idea succeeds only after a reframing. Industry has already shown that the hardware pairing works. The unclaimed part is the cognition between the two machines: deciding what an event means, which asset to send, and when to bother a human. That is exactly what Grok must be essential for, and exactly what Riello's five metrics measure.
+The dog-and-drone idea succeeds only after a reframing. Industry has already shown that the hardware pairing works. The unclaimed part is the cognition between the two machines: deciding what an event means, which asset to send, and when to bother a human. That is exactly what Grok must be essential for, and exactly what Riello's five metrics measure.
 
 **Recommendation.** Enter Track D with a phone-camera → Grok triage → Go2 dispatch → Grok verification → Italian voice-alert loop. Build it simulation-first, with a simulated dog behind the same interface. Treat the drone as a module behind a hard go/no-go gate at about **Thursday 09:00**. If by then the Tello EDU has not streamed frames into triage while the main laptop kept internet and dog access, and flown one supervised pad-anchored route, it appears only as labelled recorded footage in the video, or not at all.
 
 ### Next-steps checklist
 
 **Wednesday (today)**
-- [ ] Agree the pivot as a team and update the repo README's "Current focus" from the guide dog to Track D.
 - [ ] Register for Track D and **book dog slots now**; Track A competes for the same dogs.
 - [ ] Get the Go2 firmware version, serial number and AES key (or account access for `unitree-fetch-aes-key`) before the first slot.
 - [ ] Stream 2–3 phones (RTSP or MJPEG) into YOLO or Frigate, with zones drawn on the provided floor plan.
@@ -263,7 +237,7 @@ Two things changed in the course of this research. The guide-dog idea fails beca
   | 1:20–1:45 | The baseline table |
   | 1:45–2:00 | The voice console and the shift report |
 
-- [ ] Before 16:00: submit the README with the baselines, the latency table and known limitations. Credit sources, including Binghamton, Glasgow and Asylon as prior art.
+- [ ] Before 16:00: submit the README with the baselines, the latency table and known limitations. Credit sources, including Asylon as prior art.
 - [ ] Keep a phone hotspot as an internet fallback for the live demo.
 
 ### Questions to ask museum staff today

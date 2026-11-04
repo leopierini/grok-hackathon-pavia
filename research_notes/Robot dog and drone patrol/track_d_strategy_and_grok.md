@@ -1,8 +1,6 @@
 # Track D "Robot Dog Patrol" (Riello): winning strategy, drone add-on, and the Grok capabilities that make Grok essential
 
-> Research date: 2026-11-04 (day 1 of the hackathon). Local sources: `/Users/leonardo/Desktop/Projects/Hackathons/SpaxeXAI Hackathon/hackathon info.md` (scraped from https://pavia.grokbot.it/tracks and /rules), `slides/Grok-Hackathon-kickoff.txt`, `guide-dog-system-plan.md`, `robot-docs/README.md`. Web sources: docs.x.ai, x.ai, github.com/xai-org/xai-cookbook, docs.frigate.video, DJITelloPy, plus hackathon and industry write-ups.
->
-> Context note: the teammate's `guide-dog-system-plan.md` describes an **assistive guide dog for a blind user**, not a security patrol. It matches none of the 10 tracks, and its design rule "cloud VLMs only for on-demand" ([guide-dog-system-plan.md §4](file:///Users/leonardo/Desktop/Projects/Hackathons/SpaxeXAI%20Hackathon/guide-dog-system-plan.md)) works against the hackathon rule that Grok must be essential. What carries over to Track D is its hardware groundwork: Go2 via WebRTC, the camera stream, the dog's speaker and mic, and an "independent safety stop" mindset. The repo README still lists the guide dog as "Current focus" ([README.md](file:///Users/leonardo/Desktop/Projects/Hackathons/SpaxeXAI%20Hackathon/README.md)).
+> Research date: 2026-11-04 (day 1 of the hackathon). Local sources: `/Users/leonardo/Desktop/Projects/Hackathons/SpaxeXAI Hackathon/hackathon info.md` (scraped from https://pavia.grokbot.it/tracks and /rules), `slides/Grok-Hackathon-kickoff.txt`, `robot-docs/README.md`. Web sources: docs.x.ai, x.ai, github.com/xai-org/xai-cookbook, docs.frigate.video, DJITelloPy, plus hackathon and industry write-ups.
 
 ## Q1. What exactly does Track D require (minimum demo, stretch goals, scope, judging), what rules apply to all tracks, who is on the jury, and what hardware is reserved?
 

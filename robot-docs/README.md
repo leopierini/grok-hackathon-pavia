@@ -3,7 +3,7 @@
 All of these are shallow clones in `sdks/`, which is **git-ignored**. Run `./robot-docs/fetch-sdks.sh` to download them. Each repo's `doc/`, `example/` and README are the documentation.
 Official Unitree docs (support.unitree.com/home/en/developer) block scripted downloads, so read them in a browser.
 
-## 🐕 Robot dogs (Unitree): the focus for the guide-dog idea
+## 🐕 Robot dogs (Unitree)
 
 ### Go2: the best fit
 | Repo | What | Key paths |

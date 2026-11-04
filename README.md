@@ -11,7 +11,6 @@ Our team's workspace for the [Grok Hackathon](https://pavia.grokbot.it/) at Ctrl
 
 **Current focus: Track D, Robot Dog Patrol (Riello).** *Grok, the night-shift operator that asks before it alarms.* Phone cameras detect an event, Grok sends the **Go2**, and when the dog's view is blocked Grok launches the **Tello EDU from the dog's back** for a look from above. The dog can talk to the person it finds, Grok checks plain-language site rules, and the caretaker gets an Italian voice alert. See [project-plan.md](./project-plan.md).
 
-~~Guide dog for blind people~~: dropped. It's already done on the same hardware (Binghamton Go2 + GPT-4, AAAI 2026; Glasgow RoboGuide on a Go1, 2024), and it fits no track. Kept for reference: `guide-dog-system-plan.md`.
 Backup ideas: Agent Failure Lab, LabOS.
 
 ⏰ **Thursday 16:00:** ~2-min video demo + minimum demo on a jury case. Pitches 16:00–19:00.

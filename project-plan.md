@@ -1,15 +1,14 @@
 # Project plan: Grok night-shift operator with a dog-carried drone
 
-> **Status:** current direction, agreed Wed 4 Nov. It replaces the guide-dog idea (`guide-dog-system-plan.md`).
+> **Status:** current direction, agreed Wed 4 Nov.
 > **Track:** D, "Robot Dog Patrol" (Riello). **Hardware:** Unitree Go2 + Tello EDU on its back + 2–3 phones as fixed cameras.
 > Background research: [`reports/Robot dog and drone patrol.md`](reports/Robot%20dog%20and%20drone%20patrol.md) · Event info: [`hackathon info.md`](hackathon%20info.md)
 
 ## One-liner
 **"Grok, the night-shift operator that asks before it alarms."** Fixed cameras spot something and Grok sends the dog. If the dog can't see well enough, Grok launches the drone from the dog's back for a look from above. The dog can also talk to the person it finds. Grok checks everything against plain-language site rules, and only then calls the caretaker in Italian.
 
-## Why we dropped the earlier ideas
-- **Guide dog for blind people:** already done on our exact hardware. Binghamton (AAAI 2026) built a Go2 + GPT-4 guide dog, and Glasgow's RoboGuide (2024, Go1 + an LLM) was trialled in a museum. Glidance sells a wheeled version. It also fits none of the 10 tracks.
-- **"Drone scouts, dog responds":** already sold. Asylon pairs drones with a Spot-based dog, under a reported $17M Securitas deal, with humans in a remote control room deciding the dispatch. It also makes the drone a single point of failure, slows event-to-arrival time (a judged metric), drains the 13-min battery on patrol, and needs a map so the drone can tell the dog where to go.
+## Why not "drone scouts, dog responds"
+Already sold. Asylon pairs drones with a Spot-based dog, under a reported $17M Securitas deal, with humans in a remote control room deciding the dispatch. It also makes the drone a single point of failure, slows event-to-arrival time (a judged metric), drains the 13-min battery on patrol, and needs a map so the drone can tell the dog where to go.
 
 ## Why the dog-carried drone
 | | Drone scouts, dog responds | **Dog carries and deploys the drone (chosen)** |
