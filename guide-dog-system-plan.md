@@ -1,7 +1,7 @@
-# Assistive Robotic Guide Dog — System Plan
+# Assistive Robotic Guide Dog — 4-Person Collaboration Plan
 
-**Audience:** Ayush (software engineer)  
-**Goal:** How it works + how to build it (MVP → pilot → production)  
+**Audience:** four people brainstorming in parallel  
+**Goal:** Split the system so each person can explore one track without waiting on the others  
 **Scope:** Walking assistance + everyday task assists for a blind user  
 **Status:** Brainstorm / architecture plan — not a product claim  
 
@@ -10,11 +10,13 @@
 > - Indie / small-team budget (not a funded robotics lab)  
 > - Phone/wearable always available as companion UI  
 > - English voice UI first; expand languages later  
-> - Not a medical device for v1 (regulatory path TBD — see §11)
+> - Not a medical device for v1 (regulatory path TBD — owned with Track 4)
+
+**How to use this doc.** One person owns one track. Stay inside your scope, write down open questions, and drop starter ideas. Do not block on another track. The shared picture below is the architecture everyone is designing against. Track 4 owns the contracts that join the four tracks.
 
 ---
 
-## 1. Product vision & user journeys
+## Shared picture (do not redesign alone)
 
 ### Vision
 A quadruped (or cart-proxy early) that acts as a **mobile sensing + guidance layer**: keep the user on a safe path, describe the scene on demand, and help with everyday locating/reading tasks — with **fail-safe stop** and **offline-first** behavior.
@@ -22,34 +24,32 @@ A quadruped (or cart-proxy early) that acts as a **mobile sensing + guidance lay
 ### Primary journeys
 
 **A. Outdoor walking (sidewalk / crosswalk)**
-1. User says destination or picks a saved place on phone.
-2. Robot leads at leash/handle distance (or user follows haptic “tug” cues).
+1. User says a destination or picks a saved place on the phone.
+2. Robot leads at leash/handle distance (or the user follows haptic “tug” cues).
 3. System detects curb cuts, poles, overhangs, moving people/vehicles.
-4. At intersections: stop, announce light/crosswalk state (OCR + traffic heuristics), wait for confirm.
-5. Replan on blockage; emergency stop on sudden hazard.
+4. At intersections: stop, announce light/crosswalk state, wait for confirm.
+5. Replan on blockage; emergency stop on a sudden hazard.
 
 **B. Indoor navigation (home / office / mall)**
 1. Pre-mapped floor plan or SLAM map of frequent spaces.
 2. Voice: “kitchen”, “elevator”, “restroom”.
-3. Doorways, stairs, glass doors flagged; elevators/escalators require explicit confirm.
+3. Doorways, stairs, and glass doors flagged; elevators and escalators need an explicit confirm.
 4. Room-level localization when GPS is useless (UWB tags / visual landmarks / BLE beacons — optional).
 
 **C. Everyday assists**
-- Find object: “where’s my water bottle?” (open-vocab detection + pointing haptic/audio).
-- Read sign / label / menu (OCR → TTS).
+- Find an object: “where’s my water bottle?” (open-vocab detection + pointing haptic/audio).
+- Read a sign, label, or menu (OCR → TTS).
 - Person find / follow (authorized contacts only).
-- Door/threshold announce; sit/stand height cues for chairs (stretch goal).
-- Carry light bag / hold door open (hardware-dependent; **do not promise** without manipulator).
+- Door/threshold announce; sit/stand height cues for chairs (stretch).
+- Carry a light bag or hold a door (hardware-dependent; **do not promise** without a manipulator).
 
 ### Non-goals (v1)
-- Fully autonomous street crossing without user confirmation  
-- Climbing stairs with user attached (high injury risk)  
-- Medical diagnosis or “certified guide dog replacement” claims  
-- Crowd surfing / dense festival navigation without human oversight  
+- Fully autonomous street crossing without user confirmation
+- Climbing stairs with the user attached
+- Medical diagnosis or “certified guide dog replacement” claims
+- Dense crowd navigation without a person in the loop
 
----
-
-## 2. High-level system architecture
+### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -57,295 +57,200 @@ A quadruped (or cart-proxy early) that acts as a **mobile sensing + guidance lay
 └─────────────┬───────────────────────────┬───────────────┘
               │ BLE / Wi‑Fi / audio       │ haptics
 ┌─────────────▼───────────────────────────▼───────────────┐
-│  Companion app (Flutter or RN)                          │
+│  Companion app                                          │
 │  voice UX, maps UI, settings, emergency contacts        │
 └─────────────┬───────────────────────────────────────────┘
               │ local LAN / BLE GATT / WebRTC data
 ┌─────────────▼───────────────────────────────────────────┐
 │  Edge computer on robot (Jetson Orin / NUC / RK3588)    │
 │  ROS2 graph: drivers → perception → Nav2 → control      │
-│  local LLM/VLM optional; Whisper/TTS; safety supervisor │
+│  local models optional; speech; safety supervisor       │
 └──────┬───────────────┬──────────────────┬───────────────┘
        │               │                  │
    sensors         actuators          optional cloud
- (cam/depth/IMU)  (legs/wheels)    (maps, model updates,
+ (cam/depth/IMU)  (legs/wheels)    (maps, vision API,
   mic/GPS/UWB)                     analytics with consent)
 ```
 
-**Nodes of truth**
-| Layer | Owns | Latency budget |
-|-------|------|----------------|
-| Safety supervisor (on robot) | E-stop, cliff, collision | &lt;50 ms |
-| Perception + Nav2 (edge) | obstacles, path, follow | 50–200 ms |
-| Companion app | UX, cloud sync, voice wake | human scale |
-| Cloud (optional) | map tiles, heavy VLM, backups | seconds OK |
+| Layer | Owns | Latency budget | Track |
+|-------|------|----------------|-------|
+| Safety supervisor (on robot) | E-stop, cliff, collision | <50 ms | 2 builds it, 4 specifies the fail-safe policy |
+| Perception (edge) | obstacles, scene, describe-on-demand | 50–200 ms for safety; seconds OK for describe | 1 |
+| Navigation + control (edge) | path, follow, motor enable | 50–200 ms | 2 |
+| Human interface | haptics, audio, confirms | human scale | 3 |
+| Companion app + links | UX shell, phone link, consent, offline policy | human scale; cloud seconds OK | 4 |
+
+**Design rules that bind every track**
+- Always-on safety perception and the stop path stay on the robot. They never wait on a cloud API.
+- A vision API is for **on-demand** description, with an explicit user trigger and consent.
+- The companion app stays **outside** ROS. Bridge with rosbridge, a small gRPC API, or MQTT.
+- Same haptic/voice vocabulary from the cart prototype through a quadruped. Do not reinvent UX when the base changes.
+- v1 is an **assistive prototype**, not a certified medical or guide device. Legal review before any public pilot.
+
+### Shared build sequence
+Fake locomotion first. Each phase has a lead track; the others supply a thin slice so the demo still joins up.
+
+| Phase | What we actually build | Lead | Others bring |
+|-------|------------------------|------|----------------|
+| 0 — cart | Human pushes a phone/cart. Voice describe / read sign, haptic left-right-stop, offline speech. Exit: a hallway walk on haptics + audio only. | 3 | 1: camera + one detector or a vision-API describe. 4: phone link + consent toggle. |
+| 1 — wheeled Nav2 | TurtleBot-class rover, indoor SLAM, Nav2 to named poses, BLE haptic handle. Exit: “kitchen → door” with stops; e-stop still works with Wi‑Fi killed. | 2 | 1: depth costmap. 3: confirm prompts. 4: offline heartbeat. |
+| 2 — outdoor pilot | GNSS, better depth or LiDAR, crosswalk confirm, supervised routes only. Exit: supervised blocks with zero uncommanded road entries. | 2 | 1: curb/sign experiments. 3: crossing confirm UX. 4: logging + consent. |
+| 3 — quadruped | Vendor SDK ↔ ROS2, lead/follow, handle mount, safety MCU. Same app and cue vocabulary. | 2 | All tracks keep their Phase 1 contracts. |
+| 4 — harden | Soak tests, a11y audit, privacy review, signed OTA, regulatory/insurance path. | 4 | Each track brings its hazard list. |
+
+**Fake with a phone or cart:** scene describe, OCR, voice, haptic language, app UX, person-follow algorithms.  
+**Do not fake for long:** a real motor-cut e-stop, outdoor depth in sun, legged locomotion, field liability.
 
 ---
 
-## 3. Sensing stack — what each is for
+## Track 1 — Sensing and vision
 
-| Sensor | Role | Notes for indie build |
-|--------|------|------------------------|
-| **Stereo / RGB cameras** (front + optional side) | obstacles, OCR, scene describe, person detect | RealSense D435i/D455 or OAK-D Pro; protect lenses |
-| **Depth (ToF/stereo)** | free-space, curb height, overhangs | Do not rely on RGB alone outdoors |
-| **IMU** | attitude, fall/slip detect, dead reckoning | On robot + optionally on leash handle |
-| **GPS / GNSS** (u-blox F9P if budget) | outdoor coarse localization | Sidewalks need map-matching; GPS alone ≠ curb |
-| **Microphone array** | voice commands, siren/horn heuristics | Noise-robust wake word on-device |
-| **Wheel/leg odometry** | local motion estimate | Fuse with IMU (EKF in ROS2) |
-| **Optional LiDAR** (mid-360 / RPLiDAR) | robust outdoor free-space | Cost↑; strong for MVP quality |
-| **Optional UWB / BLE beacons** | indoor room tags | Cheap indoor “GPS” for home |
-| **Force/torque or leash tension** | follow-user / lead-user mode | Critical HRI signal |
-| **Haptic actuators** (handle + watch) | direction, stop, urgency | Primary non-visual channel |
-| **Ultrasonic** (cheap) | low bumper redundancy | Backup only |
+**Owner:** person 1
 
-**Assumption:** Front depth + RGB + IMU + mic is the minimum viable sensing set; LiDAR is the biggest quality jump per dollar after that.
+### Scope
+Cameras, depth, and the perception that turns pixels into “what is around the user.” Includes a **high-level, exploratory** idea: connect a vision API so the dog can “see” and describe the environment (signs, obstacles, people, indoor scenes). This is a brainstorm, not a committed design. On-device models remain the default for anything that must be fast, offline, or private.
 
----
+### Why it matters
+Every other track consumes what this track sees. Navigation needs free space and obstacles. The human interface needs short, trustworthy descriptions. The phone link needs a clear rule for when an image is allowed to leave the robot. If sensing is wrong or late, the dog either freezes or walks someone into a hazard.
 
-## 4. Perception & AI
+### Open questions
+- Is front RGB + depth + IMU the minimum, and is a cheap LiDAR the next quality jump?
+- Which descriptions are safe to outsource to a vision API, and which must never leave the device?
+- What does the API actually return that an on-device detector cannot (open-vocab “find my bottle”, unusual signs, indoor scene summary)?
+- How do we show the user that a cloud describe is in progress, failed, or refused offline?
+- Do we store images at all, or only the text/events the other tracks need?
+- Outdoor sun, glass, and night: where does depth fail, and what is the backup?
 
-### Capabilities → candidate stack
-
-| Capability | Approach | Candidates | Runs where |
-|------------|----------|------------|------------|
-| Obstacle / free-space | depth + occupancy grid | Nav2 costmaps, elevation maps | Edge |
-| Semantic obstacles | detect people, bikes, vehicles | **YOLOv8/v11**, RT-DETR | Edge (TensorRT) |
-| Curb / stair | depth discontinuity + classifier | custom CNN or elevation mapping | Edge |
-| Path finding | global + local planner | **Nav2** (Smac/MPPI), DWB | Edge |
-| Person following | track + keep distance | ByteTrack + YOLO; MediaPipe Pose | Edge |
-| Scene description | VLM on demand | **Moondream**, LLaVA, GPT-4o/Claude vision (cloud) | Edge small / cloud large |
-| OCR / signs | detect text → read | **PaddleOCR**, EasyOCR, Apple Vision (phone) | Edge or phone |
-| Speech-to-text | commands | **Whisper** (faster-whisper / whisper.cpp), Picovoice | Edge |
-| TTS | announcements | Piper, Coqui, device TTS | Edge / phone |
-| Open-vocab “find X” | grounded detection | OWL-ViT, Grounding DINO, YOLO-World | Edge if quantized |
-
-### Design rules
-- **Always-on safety perception** stays on-device; never waits on cloud.
-- Cloud VLMs only for **on-demand** “what’s around me?” with explicit user trigger + consent.
-- Prefer TensorRT / ONNX Runtime / OpenVINO over Python-only loops on the hot path.
-- MediaPipe is fine for hands/pose prototypes; swap to YOLO+tracker for outdoor robustness.
+### Starter ideas
+- **Minimum set:** front stereo or RGB-D (RealSense D435i/D455 or OAK-D), IMU, mic. Optional later: side camera, wheel/leg odometry, ultrasonic bumper, UWB/BLE beacons indoors, GNSS outdoors.
+- **Always on device:** free-space and obstacles (depth → occupancy / elevation), people/bikes/vehicles (YOLO or RT-DETR), curb and stair discontinuities, person track if follow-mode is in scope. Hot path prefers TensorRT / ONNX, not a Python loop.
+- **Vision API (exploratory):** on explicit “what’s around me?” / “read that” / “find X”, send a still (or a short clip) to a vision API and speak the result. Good for rich scene language, odd signs, and indoor “describe this room” while we learn what users ask. Not the obstacle detector.
+- **API helps when:** the question is open-vocab, the user is stopped or paused, a second or two of latency is acceptable, and they have consented to the upload.
+- **On-device is safer when:** the robot is moving, the cue is stop/obstacle/curb, the link is down, or the frame contains strangers’ faces. Latency budget for safety perception is 50–200 ms. No continuous cloud video.
+- **Split the output:** a local event stream (`obstacle`, `curb`, `person`, `free_space`) for Track 2, and a separate on-demand `description` text for Track 3. Track 4 carries consent and the upload.
+- **OCR:** on-device PaddleOCR / EasyOCR for signs and labels; phone vision APIs as a fallback experiment. Crosswalk state is an experiment, not a promise of autonomous crossing.
+- **Skip early:** training a VLM from scratch, monocular depth as a LiDAR replacement, storing raw face crops.
 
 ---
 
-## 5. Control & locomotion
+## Track 2 — Navigation and robot control
 
-### Platform choice
+**Owner:** person 2
 
-| Option | Pros | Cons | Indie realism |
-|--------|------|------|---------------|
-| **Unitree Go2 / B2 Edu** | Real dog form, SDK, ROS support | Cost ($1.6k–$10k+), payload/compute limits | Best “real dog” path |
-| **DeepRobotics / Ghost** etc. | Similar | Availability, support | Evaluate vs Unitree |
-| **Boston Dynamics Spot** | Mature | Very expensive, lease-heavy | Unrealistic for indie v1 |
-| **Custom quadruped** | Full control | Years of mech/controls | **Avoid** for product MVP |
-| **Wheeled cart / rover** (TurtleBot4, Clearpath Jackal, DIY) | Cheap, stable Nav2 | Not “dog”; stairs fail | **Best learning MVP** |
-| **Phone-on-cart** | Almost free | No locomotion autonomy | Perception/HRI first |
+### Scope
+How the robot moves and when it refuses to move. Paths for sidewalk and indoor space, ROS2/Nav2, a fail-safe stop that does not depend on AI, and a wheeled (or pushed-cart) MVP before any quadruped.
 
-**Recommendation:** Fake locomotion with a **phone/cart** → **wheeled ROS2 robot** → **lease/buy Edu quadruped** once Nav2 + HRI work.
+### Why it matters
+This is the part that can injure someone. A good description is useless if the base steps off a curb or keeps walking after the link drops. Proving guide behavior on a stable wheeled robot is how the team learns Nav2, maps, and the stop path before paying for legs.
 
-### ROS2 role
-- **Use ROS2** as the middleware for sensors, TF, Nav2, lifecycle nodes, and simulation (Gazebo / Isaac Sim).
-- Keep companion app **outside** ROS; bridge via `rosbridge` / custom gRPC / MQTT gateway.
-- Safety supervisor as a **hard realtime-ish** node (or microcontroller watchdog) that can cut motor enable **independent of AI**.
+### Open questions
+- Wheeled learning robot first, or a Unitree Go2 early because demos need a dog shape?
+- Lead (robot ahead, user follows the handle) vs guide-cane hybrid vs follow-me — which do we prototype first?
+- Home routes first, or sidewalk navigation as the north star?
+- What, exactly, cuts motor power: a MCU watchdog, a BLE deadman, a hardware button, or all three?
+- Indoor named poses only for the hackathon slice, or a real outdoor map-match experiment?
+- Jetson Orin Nano/NX vs a cooler RK3588 / NUC once the vision load is real?
 
-### Control modes
-1. **Lead mode:** robot walks ahead; haptic leash tension = follow vector  
-2. **Guide-cane hybrid:** robot sets heading; user walks; soft corrections  
-3. **Follow-me:** robot behind carrying bag (secondary)  
-4. **Stationary assist:** OCR / describe / find object  
-
----
-
-## 6. Human–robot interface (blind-first)
-
-### Channels (priority)
-1. **Haptics** — leash handle vibes / pull: left, right, stop, slow, hazard pulse patterns  
-2. **Audio** — bone conduction (Shokz-class) so ears stay open for traffic  
-3. **Voice commands** — short grammar + free-form when connected  
-4. **Phone TalkBack / VoiceOver** — settings, maps, history (accessible UI mandatory)  
-5. **Watch haptics** — redundant stop / turn cues if leash hand busy  
-
-### Safety cue vocabulary (keep tiny & consistent)
-| Cue | Meaning |
-|-----|---------|
-| Continuous buzz | **Stop / freeze** |
-| Double pulse left/right | Turn that way |
-| Rising intensity | Hazard approaching |
-| Single click | Acknowledgement |
-| Voice “STOP” | Same as continuous buzz |
-
-### UX principles
-- Confirm before road crossing, stairs, elevators.  
-- Never dump long prose while moving; defer scene descriptions to pause.  
-- Local-first wake word; push-to-talk button on handle as backup.  
-- Emergency: long-press handle or voice “help” → stop + call contact / 911 (jurisdiction TBD).
+### Starter ideas
+- **Order of platforms:** phone or push-cart (perception + HRI) → wheeled ROS2 rover (TurtleBot4 or similar) → lease or buy an Edu quadruped (Unitree Go2 / B2 class) only after Nav2 and the stop path work. Skip a custom quadruped and Spot-class machines for v1. Do not train custom RL gaits; use the vendor SDK.
+- **ROS2:** Humble or Jazzy. Drivers, TF, Nav2, lifecycle nodes, Gazebo (Isaac later). Global + local planners (Smac / MPPI or DWB). Indoor SLAM via Slam Toolbox to named poses (“kitchen”, “door”).
+- **Modes:** (1) lead, haptic leash = follow vector, (2) guide-cane hybrid, heading with soft corrections, (3) follow-me as a secondary bag-carry idea, (4) stationary assist while motors are idle.
+- **Fail-safe stop:** hardware e-stop + BLE deadman + watchdog. Loss of user link, tip, or missed perception heartbeat → **stop**. The supervisor can cut motor enable **independent of the vision API and of Nav2**. Speed caps near roads. No silent autonomy at crosswalks — Track 3 asks, the user confirms, then Track 2 moves.
+- **Map facts Track 1 must supply:** a costmap / free-space update the planner can consume at 50–200 ms. Semantic labels are helpful; they are not a substitute for depth.
+- **What this track publishes:** `nav_state` (idle, following, blocked, waiting_confirm, stopped), a short reason string, and battery/thermal gates (“won’t start a route under X%”).
+- **Outdoor later:** GNSS map-matching, curb policy, weather. Exit bar for a pilot: supervised blocks and zero uncommanded road entries.
 
 ---
 
-## 7. Communication layers
+## Track 3 — Human interface
 
-| Link | Tech | Use | Offline behavior |
-|------|------|-----|------------------|
-| Robot ↔ phone (local) | **Wi‑Fi AP on robot** or LAN | High bandwidth (video optional, state, voice) | Primary path |
-| Robot ↔ phone (near) | **BLE GATT** | Heartbeat, e-stop, low-rate haptics when Wi‑Fi down | Must work |
-| Robot ↔ cloud | HTTPS / **gRPC** / MQTT over TLS | maps, model updates, optional VLM | Queued; app degrades |
-| Live A/V assist (optional remote human) | **WebRTC** | Sighted helper session | Explicit opt-in |
-| Telemetry | **MQTT** (HiveMQ / Mosquitto) or NATS | sparse status | Buffer on disk |
+**Owner:** person 3
 
-### Protocols — when to use what
-- **gRPC:** typed robot API (commands, nav goals, battery)  
-- **MQTT:** pub/sub telemetry, multi-device watches  
-- **WebRTC:** remote vision assistance only  
-- **BLE:** safety keepalive; if BLE lost → controlled stop or “hold position”
+### Scope
+Everything the blind user actually senses: audio, haptics, voice, and the confirmations required before a risky move. The phone’s screen-reader UI is Track 4’s shell; this track owns the language, timing, and cue set that shell must speak and vibrate.
 
-### Offline-first requirements
-- Nav within known maps without internet  
-- STT/TTS on-device for core commands  
-- No cloud required for walk / stop / turn / home  
-- Cloud features clearly labeled “needs connection”
+### Why it matters
+The user cannot watch a debug view. Trust comes from a tiny, consistent set of cues and from never talking over traffic. A wrong or chatty interface is as dangerous as a wrong path, because the user will miss the stop.
 
----
+### Open questions
+- Which three cues must work with no speech at all (so a noisy street still works)?
+- Bone conduction vs a speaker on the robot vs an earpiece that blocks traffic noise?
+- Push-to-talk on the handle vs a local wake word vs both?
+- When is a spoken sentence allowed while moving, and when must we wait for a pause?
+- Lead-with-handle vs robot-ahead: which cue pattern matches which control mode from Track 2?
+- How does a cloud vision-API answer get introduced so the user knows it is slower and optional?
 
-## 8. Software frameworks & stack options
+### Starter ideas
+- **Channel order:** (1) haptics on the leash handle, (2) bone-conduction audio (Shokz-class) so ears stay open, (3) short voice commands, (4) watch haptics as a redundant stop/turn if the leash hand is busy, (5) phone VoiceOver/TalkBack only for settings, maps, and history.
+- **Keep the vocabulary tiny:**
 
-### Recommended indie stack (opinionated)
+  | Cue | Meaning |
+  |-----|---------|
+  | Continuous buzz | **Stop / freeze** |
+  | Double pulse left or right | Turn that way |
+  | Rising intensity | Hazard approaching |
+  | Single click | Acknowledgement |
+  | Voice “STOP” | Same as the continuous buzz |
 
-| Layer | Choice | Why | Tradeoff |
-|-------|--------|-----|----------|
-| Robot middleware | **ROS2 Humble/Jazzy** | Nav2 ecosystem, drivers | Learning curve |
-| Navigation | **Nav2** | Production-ish planners, behavior trees | Tune heavily outdoors |
-| Vision | **OpenCV** + **Ultralytics YOLO** | Fast to ship | Custom curb models still needed |
-| Depth foundation | **Depth Anything V2** (optional) | Monocular depth fill | Not a LiDAR replacement |
-| On-device speech | **whisper.cpp** + **Piper** | Offline, small | Accent robustness varies |
-| Companion app | **Flutter** | One codebase, solid a11y widgets | Native iOS a11y quirks |
-| Alt app | **React Native** | JS team familiarity | BLE/Wi‑Fi native modules more glue |
-| Edge HW | **Jetson Orin Nano / NX** | CUDA + TensorRT | Power/thermals on dog |
-| Alt edge | **Intel NUC / RK3588** | Cheaper, cooler | Weaker GPU |
-| Sim | Gazebo + Nav2; later Isaac | Iterate without hardware | Sim-to-real gap |
-| ML ops | ONNX + TensorRT export | Deterministic deploy | Export pain |
-
-### What to skip early
-- Custom RL locomotion (use vendor SDK gait)  
-- Training large VLMs from scratch  
-- Building your own mobile OS / mesh radio stack  
-
-### Cost/complexity realism (order-of-magnitude)
-| Stage | Hardware spend | Team shape |
-|-------|----------------|------------|
-| Phone-on-cart MVP | $50–300 | 1 engineer nights/week |
-| Wheeled Nav2 pilot | $1k–5k | 1–2 engineers |
-| Quadruped pilot | $3k–15k + compute | 2–4 + ME advisor |
-| Production | $$$ + liability insurance + regulatory | Company |
+- **Confirm before:** road crossing, stairs, elevators, escalators. Never dump a paragraph while moving. Scene descriptions wait until the user pauses or asks.
+- **Speech:** on-device wake word plus a handle push-to-talk backup. Core commands (“stop”, “kitchen”, “describe”, “help”) work offline via whisper.cpp (or faster-whisper) and Piper or the phone’s TTS. Free-form questions can use a connected model later; they are not the safety channel.
+- **Emergency:** long-press the handle or voice “help” → Track 2 stops, Track 4 offers to call a contact. Jurisdiction and whether that call is in v1 stay open.
+- **Copy the API answers into the same style:** one sentence, then silence. If Track 1’s vision API is slow or offline, say so in a few words and fall back to the local detector (“person ahead”, “blocked”) instead of improvising.
+- **Phase 0 exit:** a blindfolded hallway walk using only this cue set.
 
 ---
 
-## 9. Safety, reliability, privacy
+## Track 4 — Comms, companion app, and safety policy
 
-### Safety
-- **Independent e-stop:** hardware button + BLE deadman + watchdog MCU that cuts motor power  
-- **Fail-safe default:** loss of user link, tipped robot, or perception heartbeat miss → **stop**  
-- **Redundancy:** depth + ultrasonic bumper; haptic + audio for critical stops  
-- **Speed caps** near roads; geofence optional  
-- **No silent autonomy** at crosswalks — user confirm  
-- Log black-box ring buffer (local) for incident review  
+**Owner:** person 4
 
-### Reliability
-- Lifecycle-managed ROS nodes; auto-restart non-critical; never auto-restart without safety clear  
-- Battery SOC gates (“won’t start route &lt; X%”)  
-- Thermal throttling → reduce AI, keep safety  
+### Scope
+The phone link, offline-first behavior, privacy, and **how the four tracks integrate**. This track does not invent a second navigation stack or a second cue language. It defines the pipes, the consent rules, and the one place a teammate looks to see what the others publish.
 
-### Privacy
-- Default: **on-device** processing; no continuous cloud video  
-- Cloud/VLM/WebRTC: **explicit consent**, visible recording indicator (audio cue)  
-- Faces of strangers: prefer blur / embeddings not stored  
-- Data retention knobs in app; export/delete account  
-- Assume cameras are socially sensitive — physical shutter or LED  
+### Why it matters
+Four people brainstorming in parallel will drift unless the messages between tracks are boring and explicit. The walk has to survive a dead network. Cameras on a sidewalk are socially sensitive, so “send the frame to an API” is a product decision, not a default.
 
-### Liability (assumption)
-v1 is an **assistive prototype**, not a certified medical/guide device. Legal review before any public pilot.
+### Open questions
+- Strict offline-only v1, or opt-in cloud vision API from the first demo?
+- Flutter vs React Native vs native, judged by VoiceOver and TalkBack quality?
+- Is a remote sighted helper (WebRTC) in scope, or out for privacy and liability?
+- Research prototype indefinitely, or an assistive-tech / medical path later?
+- What is the budget ceiling before anyone buys a quadruped?
+- Who are the first evaluation users, and can an orientation-and-mobility specialist review the cue set?
 
----
+### Starter ideas
+- **Links:**
 
-## 10. Phased build plan
+  | Link | Tech | Use | If it dies |
+  |------|------|-----|------------|
+  | Robot ↔ phone, local | Wi‑Fi AP on the robot | state, voice, optional stills | fall back to BLE |
+  | Robot ↔ phone, near | BLE GATT | heartbeat, e-stop, low-rate haptics | Track 2 stops or holds |
+  | Robot ↔ cloud | HTTPS / gRPC / MQTT over TLS | map tiles, model updates, **opt-in vision API** | queue or disable; walk/stop/turn still work |
+  | Remote sighted helper | WebRTC | explicit session only | not required for guidance |
+  | Telemetry | MQTT or NATS | sparse status | buffer on disk |
 
-### Phase 0 — HRI & perception on a cart (2–6 weeks of focused work)
-**Buy/build:** smartphone tripod/cart, bone-conduction headset, cheap vibe motor on a cane/handle, optional USB cam.  
-**Fake:** locomotion (human pushes cart), mapping, legs.  
-**Ship:** voice “describe / read sign / find door”, haptic left-right-stop language, offline Whisper+TTS, YOLO people/obstacles overlay.  
-**Exit criteria:** Blindfolded or blindfolded-partner walk along a hallway using **only** haptics+audio.
+- **Protocols:** gRPC (or a small typed API) for commands, nav goals, and battery. MQTT for telemetry and a watch. BLE for the safety keepalive. WebRTC only for an opted-in helper. The vision API call is a Track 4 client that Track 1 requests; it does not sit on the Nav2 hot path.
+- **Offline-first:** known-map nav, on-device STT/TTS for core commands, and stop/turn/home with no cloud. Any cloud feature is labeled “needs connection,” including vision-API describe.
+- **Privacy:** on-device by default, no continuous cloud video, explicit consent and an audio cue when a still is uploaded, blur or drop stranger faces, retention/export/delete in the app, a camera LED or shutter. Local black-box ring buffer for incidents, not a cloud video archive.
+- **App shell:** maps, saved places, settings, emergency contacts, a consent switch for the vision API, and a visible “offline / API unavailable” state. Accessible UI is mandatory. Flutter is the default bet; React Native if the team is already in JS. Native modules will be needed for BLE and the robot Wi‑Fi.
+- **Integration contract** (the only shared interface the other tracks must honor):
 
-### Phase 1 — MVP wheeled guide (Nav2)
-**Buy:** TurtleBot4 / differential rover, RPi or Jetson, RealSense or OAK-D, optional 2D LiDAR.  
-**Build:** ROS2 bringup, indoor SLAM (Slam Toolbox), Nav2 to named poses, BLE haptic handle, Flutter app skeleton.  
-**Fake:** outdoor curb logic, stairs, quadruped balance.  
-**Exit criteria:** Indoor “kitchen → door” with stops for obstacles; e-stop works with Wi‑Fi killed.
+  | From | To | Message |
+  |------|----|---------|
+  | Track 1 | Track 2 | local obstacle / free-space / curb events at 50–200 ms, no network |
+  | Track 1 | Track 3 | short on-device cues (“blocked”, “person”) plus optional description text |
+  | Track 1 | Track 4 | “please describe this still” only after the user asked and consent is on |
+  | Track 2 | Track 3 | `nav_state` + reason, so speech matches motion |
+  | Track 3 | Track 2 | stop, turn ack, destination, **confirm** before crossing / stairs / elevator |
+  | Track 3 | Track 4 | help / call-contact request |
+  | Track 4 | all | link health, consent flags, offline mode; loss of BLE heartbeat means stop |
 
-### Phase 2 — Outdoor pilot (still wheeled or leased quadruped)
-**Buy/add:** GNSS, better depth/LiDAR, traffic-light OCR experiment, leash tension sensor.  
-**Build:** sidewalk map-matching, crosswalk confirm UX, weather cases, logging.  
-**Pilot:** 1–3 trusted users, supervised routes only.  
-**Exit criteria:** N supervised outdoor blocks with zero uncommanded road entries.
+- **Safety policy this track writes down:** independent e-stop, fail-safe default is stop, depth plus a bumper, haptic plus audio for critical stops, no auto-restart of motion without a safety clear, thermal throttle drops AI before it drops the supervisor.
+- **Suggested layout once code starts:** `robot_ws/` (ROS2), `perception/` (detectors + vision-API client), `safety_mcu/`, `app/`, `docs/`, `eval/`.
 
-### Phase 3 — Quadruped integration
-**Buy:** Unitree Go2 Edu (or equiv.) + Orin payload if needed.  
-**Build:** vendor SDK ↔ ROS2 bridge, lead/follow modes, handle mount, safety MCU.  
-**Keep:** same app + haptic vocabulary (do not reinvent UX).  
-**Exit criteria:** Same indoor/outdoor behaviors as wheeled, plus rough-ground.
-
-### Phase 4 — Production readiness
-- Reliability soak tests, red-team hazards, a11y audit, privacy review  
-- Support tooling, OTA with signed images  
-- Regulatory/insurance path (see open questions)  
-- Everyday assists: object find, menu OCR polish, optional remote WebRTC helper  
-
-### What to fake before buying a robot dog
-| Fake with phone/cart | Don’t fake forever |
-|----------------------|--------------------|
-| Scene describe, OCR, voice | Real e-stop cut of motors |
-| Haptic language | Depth outdoors in sun |
-| App UX / offline mode | Legged locomotion |
-| Person follow algorithms | Liability & field safety |
+### Phase 0 shopping list (shared, not a second project)
+Bone-conduction headset, phone and battery pack, USB or RealSense/OAK-D camera, a few coin vibe motors and an ESP32 for the handle, then a TurtleBot-class rover. Jetson when on-device vision needs it. Optional 2D LiDAR. Quadruped only after the Phase 1 exit criteria.
 
 ---
 
-## 11. Open questions / decisions for Ayush
-
-1. **Form factor bet:** Commit to wheeled-first learning, or buy Go2 early for demos/fundraising?  
-2. **Lead vs follow biomechanics:** Handle-in-hand guide (classic dog) vs robot-ahead with haptic leash — which feels safer in user tests?  
-3. **Target environment:** Home-only assist first, or sidewalk navigation as the north star?  
-4. **Edge hardware:** Jetson Orin Nano vs cheaper RK3588 — CUDA need vs battery life?  
-5. **Companion app stack:** Flutter vs React Native vs native iOS/Android for best VoiceOver/TalkBack?  
-6. **Cloud policy:** Strict offline-only v1, or allow opt-in cloud VLM from day one?  
-7. **Remote human assist:** In-scope (WebRTC) or explicitly out for privacy/liability?  
-8. **Regulatory stance:** Research prototype indefinitely, or pursue assistive-tech / medical pathways?  
-9. **Language & locale:** Single-language STT OK? Which city’s sidewalks for first map?  
-10. **Budget ceiling:** Cap before quadruped purchase (suggest: don’t buy dog until Phase 1 exit criteria met)?  
-11. **Team:** Solo nights vs need a ME for mounts/leash strain relief?  
-12. **Evaluation users:** Access to blind/low-vision testers and orientation-&amp;mobility (O&amp;M) specialist feedback?
-
----
-
-## Appendix A — Suggested repo layout (when coding starts)
-
-```
-guide-dog/
-  robot_ws/          # ROS2 packages
-  perception/        # YOLO, OCR, VLM wrappers
-  safety_mcu/        # watchdog firmware
-  app/               # Flutter companion
-  docs/              # architecture, hazard log
-  eval/              # route bags, metrics
-```
-
-## Appendix B — First shopping list (Phase 0–1)
-
-- Bone-conduction headset  
-- Phone + spare battery pack  
-- USB / RealSense or OAK-D camera  
-- 3–4 coin vibe motors + ESP32 for haptic handle prototype  
-- TurtleBot4 or equiv. rover (Phase 1)  
-- Optional: RPLiDAR A2/A3 or Mid-360  
-- Jetson Orin Nano developer kit (when vision load demands it)
-
----
-
-*Document type: engineering plan. No performance guarantees. Validate with real users before any “guide dog replacement” language.*
+*Document type: collaboration plan on top of the engineering sketch. No performance guarantees. Validate with real users before any “guide dog replacement” language.*
