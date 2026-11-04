@@ -41,6 +41,26 @@ class FakeDroneTests(unittest.TestCase):
                 )
             self.assertEqual(raised.exception.code, "invalid_input")
 
+    def test_allowlist_rejects_before_takeoff(self) -> None:
+        cases = [
+            InspectionRequest("room_2", "other_profile", "floor"),
+            InspectionRequest("entrance", "room_2_view_v1", "floor"),
+            InspectionRequest("room_2", "room_2_view_v1", "dog_pad"),
+        ]
+
+        for request in cases:
+            with TemporaryDirectory() as tmp:
+                drone = create_drone(mode="fake", config={}, output_dir=Path(tmp))
+
+                async def run(req=request):
+                    await drone.connect()
+                    ctx = RunContext("bad", time.monotonic() + 30, Event())
+                    return await drone.inspect(req, ctx)
+
+                with self.assertRaises(AdapterError):
+                    asyncio.run(run())
+                self.assertNotIn("takeoff_attempt", drone.trace)
+
     def test_cancel_does_not_take_off(self) -> None:
         with TemporaryDirectory() as tmp:
             drone = create_drone(mode="fake", config={}, output_dir=Path(tmp))

@@ -1,6 +1,6 @@
 {
   "interface": "",
-  "profiles_path": "",
+  "profiles_path": "profiles/room_2_view_v1.json",
   "battery_min_percent": 20,
   "max_flight_s": 60,
   "command_timeout_s": 5,

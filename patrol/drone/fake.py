@@ -16,6 +16,7 @@ from patrol.contract import (
     InspectionResult,
     RunContext,
 )
+from patrol.drone.profile import allow
 
 _BUNDLED_JPEG = Path(__file__).resolve().parent / "assets" / "simulated.jpg"
 
@@ -153,6 +154,7 @@ class FakeDrone:
             raise AdapterError("invalid_input", "launch origin is not allowed")
         if not isinstance(request.profile_id, str) or not request.profile_id.strip():
             raise AdapterError("invalid_input", "profile_id is required")
+        allow(request.profile_id, request.zone, request.launch_origin)
 
     def _save_frame(self, request: InspectionRequest, ctx: RunContext) -> Frame:
         if not _BUNDLED_JPEG.is_file():
