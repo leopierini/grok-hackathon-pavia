@@ -3,9 +3,10 @@
     python -m patrol.drone.room2
     python -m patrol.drone.room2 --arm
 
-Join TELLO-62A593 first. Put the drone on the floor mark, nose toward open
-floor, with the dog behind it. The path is 20 cm forward, one photo, 20 cm
-back, then land on that same mark.
+Join TELLO-62A593 first. Put the drone on the floor mark, nose toward the
+subject, with the dog behind it. It hovers, takes one photo, and lands on
+that same mark. It does not translate: the distance command cannot track
+this floor.
 """
 
 from __future__ import annotations
@@ -37,11 +38,8 @@ def main(argv: list[str] | None = None) -> int:
     except AdapterError as exc:
         print(f"{exc.code}: {exc.detail}")
         return 2
-    cm = int(profile["viewpoint"]["forward_cm"])
     settle = int(profile["settle_s"])
-    print(
-        f"room_2_view_v1: takeoff, hold {settle}s, forward {cm} cm, photo, back {cm} cm, land"
-    )
+    print(f"room_2_view_v1: takeoff, hold {settle}s, photo, land on the same mark")
     if not args.arm:
         print("not armed; no motors")
         return 0
@@ -79,9 +77,6 @@ def fly(profile: dict, output_dir: Path) -> int:
                 print(f"refusing to fly below {reserve}%")
             else:
                 _query_optional(sdk, "downvision 0")
-                print(sdk.query("streamon"))
-                streaming = True
-                time.sleep(0.5)
                 print("taking off")
                 takeoff_sent = True
                 if sdk.query("takeoff", timeout=float(profile["takeoff_timeout_s"])) != "ok":
@@ -89,25 +84,30 @@ def fly(profile: dict, output_dir: Path) -> int:
                 else:
                     deadline = time.monotonic() + float(profile["max_flight_s"])
                     _settle(sdk, float(profile["settle_s"]), deadline)
-                    _query_optional(sdk, f"speed {int(profile['speed_cm_s'])}")
-                    _expire(deadline)
-                    print(f"forward {forward} cm")
-                    forward_sent = True
-                    if sdk.query(f"forward {forward}", timeout=move_timeout) != "ok":
-                        print("forward was not confirmed; landing here, no retry")
+                    if forward == 0:
+                        print("holding; no translation on this floor")
+                        streaming = True
+                        frame = _photo(sdk, output_dir)
+                        code = 0 if frame is not None else 1
                     else:
-                        outbound_ok = True
-                        time.sleep(float(profile["viewpoint"]["hold_s"]))
-                        sdk.query("command", timeout=3)
-                        frame = _capture(output_dir, timeout=4)
+                        _query_optional(sdk, f"speed {int(profile['speed_cm_s'])}")
                         _expire(deadline)
-                        print(f"back {forward} cm")
-                        back_attempted = True
-                        if sdk.query(f"back {forward}", timeout=move_timeout) == "ok":
-                            back_ok = True
-                            code = 0 if frame is not None else 1
+                        print(f"forward {forward} cm")
+                        forward_sent = True
+                        if sdk.query(f"forward {forward}", timeout=move_timeout) != "ok":
+                            print("forward was not confirmed; landing here, no retry")
                         else:
-                            print("return was not confirmed")
+                            outbound_ok = True
+                            streaming = True
+                            frame = _photo(sdk, output_dir)
+                            _expire(deadline)
+                            print(f"back {forward} cm")
+                            back_attempted = True
+                            if sdk.query(f"back {forward}", timeout=move_timeout) == "ok":
+                                back_ok = True
+                                code = 0 if frame is not None else 1
+                            else:
+                                print("return was not confirmed")
     except Exception as exc:
         print(f"profile failed: {exc}")
         code = 1
@@ -132,6 +132,14 @@ def fly(profile: dict, output_dir: Path) -> int:
                 pass
         sdk.close()
     return code
+
+
+def _photo(sdk, output_dir: Path) -> Path | None:
+    """Video stays off during takeoff. It comes on only to grab the still."""
+    print(sdk.query("streamon"))
+    time.sleep(0.8)
+    sdk.query("command", timeout=3)
+    return _capture(output_dir, timeout=4)
 
 
 def _land(sdk, on_patch: bool) -> bool:
