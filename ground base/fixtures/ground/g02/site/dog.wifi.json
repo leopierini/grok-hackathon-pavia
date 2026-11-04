@@ -1,0 +1,7 @@
+{
+  "connection_mode": "LocalAP",
+  "interface": "wlan0",
+  "routes_path": "../routes/room_2.json",
+  "max_route_s": 30,
+  "command_timeout_s": 2
+}

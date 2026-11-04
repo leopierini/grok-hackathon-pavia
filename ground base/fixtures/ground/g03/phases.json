@@ -1,0 +1,19 @@
+{
+  "slot": "base.state",
+  "phases": [
+    "IDLE",
+    "ASSESS",
+    "PREPARE_DOG",
+    "MOVE_DOG",
+    "WAIT_ARRIVAL",
+    "GROUND_VIEW",
+    "PREFLIGHT",
+    "INSPECT",
+    "RESOLVE",
+    "REPORT",
+    "DONE",
+    "ABORTED",
+    "FAULT"
+  ],
+  "outcomes": ["ignored", "cleared", "alerted", "unresolved", "aborted", "failed"]
+}

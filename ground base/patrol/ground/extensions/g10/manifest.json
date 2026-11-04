@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v1",
+  "task_id": "GROUND-10",
+  "slot": "base.safety",
+  "factory": "patrol.ground.extensions.g10.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g10.scenarios:cases"
+}

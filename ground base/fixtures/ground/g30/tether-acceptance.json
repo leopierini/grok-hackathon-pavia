@@ -1,0 +1,8 @@
+{
+  "profile_name": "ethernet-tether",
+  "dog_transport": "ethernet",
+  "accepted": true,
+  "evidence": "simulated",
+  "cable_stays_connected": true,
+  "note": "Synthetic tether acceptance. This file is not a physical cable check."
+}

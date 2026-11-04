@@ -1,0 +1,7 @@
+{
+  "interface": "wifi0",
+  "profiles_path": "../profiles/views.json",
+  "battery_min_percent": 30,
+  "max_flight_s": 30,
+  "command_timeout_s": 2
+}

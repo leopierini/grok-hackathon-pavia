@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v2",
+  "task_id": "GROUND-26",
+  "slot": "feature.v2_proximity",
+  "factory": "patrol.ground.extensions.g26.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g26.scenarios:cases"
+}

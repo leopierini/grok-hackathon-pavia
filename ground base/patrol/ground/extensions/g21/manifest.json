@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v2",
+  "task_id": "GROUND-21",
+  "slot": "feature.v2_rssi",
+  "factory": "patrol.ground.extensions.g21.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g21.scenarios:cases"
+}

@@ -1,0 +1,20 @@
+{
+  "evidence": "simulated",
+  "python": "3.12.10",
+  "os": "Windows",
+  "tests_passed": 1494,
+  "failures": 0,
+  "skipped": 0,
+  "task_simulations": 96,
+  "simulation_case_executions": 1347,
+  "simulation_assertions": 24156,
+  "composed_runs": 60,
+  "quality_tasks": 32,
+  "live_calls": 0,
+  "line_coverage_percent": 87.66,
+  "branch_coverage_percent": 71.83,
+  "nontrivial_functions": 2115,
+  "functions_entered": 2082,
+  "physical_acceptance": "not performed",
+  "linear": "sync pending"
+}

@@ -1,0 +1,12 @@
+{
+  "beacon_id": "tello-demo-01",
+  "bssid": "02:00:00:00:00:01",
+  "ssid": "TELLO-DEMO",
+  "beacon_epoch": 3,
+  "hold_state": "stable",
+  "flight_state": "airborne",
+  "verified_at": "2026-11-04T13:00:10.000Z",
+  "hold_valid_until": "2026-11-04T13:00:12.000Z",
+  "epoch": 3,
+  "dog_motion_allowed": true
+}

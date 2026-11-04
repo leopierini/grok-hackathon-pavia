@@ -1,0 +1,78 @@
+{
+  "protocol_version": "2.0-draft",
+  "message_id": "msg-pi-rssi-window-noisy",
+  "mission_id": "demo-20261104-001",
+  "epoch": 1,
+  "seq": 2,
+  "sent_at": "2026-11-04T13:00:10.000Z",
+  "source": "pi",
+  "destination": "ground",
+  "kind": "rssi.window",
+  "correlation_id": null,
+  "expires_at": null,
+  "simulated": true,
+  "payload": {
+    "receiver_id": "pi-01",
+    "receiver_mount": "dog",
+    "interface": "wlan-measurement",
+    "beacon_id": "tello-demo-01",
+    "bssid": "02:00:00:00:00:01",
+    "beacon_epoch": 3,
+    "window_start": "2026-11-04T13:00:09.600Z",
+    "window_end": "2026-11-04T13:00:09.800Z",
+    "clock_error_ms": 15,
+    "samples": [
+      {
+        "sample_id": "rssi-0",
+        "captured_at": "2026-11-04T13:00:09.600Z",
+        "rssi_dbm": -62,
+        "pose": {
+          "frame_id": "museum/map",
+          "map_id": "museum-map-demo",
+          "map_epoch": 1,
+          "x_m": 0.0,
+          "y_m": 0,
+          "z_m": 0,
+          "yaw_rad": 0.0,
+          "observed_at": "2026-11-04T13:00:09.600Z",
+          "valid": true
+        }
+      },
+      {
+        "sample_id": "rssi-1",
+        "captured_at": "2026-11-04T13:00:09.700Z",
+        "rssi_dbm": -60,
+        "pose": {
+          "frame_id": "museum/map",
+          "map_id": "museum-map-demo",
+          "map_epoch": 1,
+          "x_m": 0.1,
+          "y_m": 0,
+          "z_m": 0,
+          "yaw_rad": 0.0,
+          "observed_at": "2026-11-04T13:00:09.700Z",
+          "valid": true
+        }
+      },
+      {
+        "sample_id": "rssi-2",
+        "captured_at": "2026-11-04T13:00:09.800Z",
+        "rssi_dbm": -58,
+        "pose": {
+          "frame_id": "museum/map",
+          "map_id": "museum-map-demo",
+          "map_epoch": 1,
+          "x_m": 0.2,
+          "y_m": 0,
+          "z_m": 0,
+          "yaw_rad": 0.0,
+          "observed_at": "2026-11-04T13:00:09.800Z",
+          "valid": true
+        }
+      }
+    ],
+    "median_rssi_dbm": -60,
+    "spread_db": 40,
+    "quality": "noisy"
+  }
+}

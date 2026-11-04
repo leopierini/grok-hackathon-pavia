@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v1",
+  "task_id": "GROUND-09",
+  "slot": "base.workflow",
+  "factory": "patrol.ground.extensions.g09.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g09.scenarios:cases"
+}

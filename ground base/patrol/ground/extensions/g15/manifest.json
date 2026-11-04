@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v2",
+  "task_id": "GROUND-15",
+  "slot": "feature.v2_vision_schedule",
+  "factory": "patrol.ground.extensions.g15.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g15.scenarios:cases"
+}

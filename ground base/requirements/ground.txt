@@ -1,0 +1,8 @@
+# Ground station offline pins. Hardware SDKs stay out of this file.
+pillow==11.3.0
+prompt_toolkit==3.0.52
+pytest==8.4.2
+ruff==0.14.2
+mypy==1.18.2
+coverage==7.11.0
+jsonschema==4.25.1

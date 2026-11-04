@@ -1,0 +1,34 @@
+{
+  "protocol_version": "2.0-draft",
+  "message_id": "msg-ground-to-dog-command-after",
+  "mission_id": "demo-20261104-001",
+  "epoch": 1,
+  "seq": 3,
+  "sent_at": "2026-11-04T13:00:10.820Z",
+  "source": "ground",
+  "destination": "dog",
+  "kind": "dog.command",
+  "correlation_id": "msg-ai-to-dog-proposal",
+  "expires_at": "2026-11-04T13:00:10.510Z",
+  "simulated": true,
+  "payload": {
+    "command_id": "cmd-dog-001",
+    "proposal_id": "proposal-dog-001",
+    "action": "move_local",
+    "lease_ms": 300,
+    "motion": {
+      "frame_id": "dog/base_link",
+      "linear_x_m_s": 0.1,
+      "linear_y_m_s": 0.0,
+      "angular_z_rad_s": 0.0,
+      "duration_ms": 300,
+      "candidate_id": "candidate-forward-01",
+      "snapshot_id": "nav-001",
+      "map_epoch": 1
+    },
+    "track_id": "target-001",
+    "beacon_epoch": 4,
+    "safety_snapshot_id": "safety-001",
+    "reason": "Synthetic step after beacon epoch 4. The epoch-3 example is not this command."
+  }
+}

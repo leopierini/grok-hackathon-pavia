@@ -1,0 +1,46 @@
+{
+  "protocol_version": "2.0-draft",
+  "message_id": "msg-drone-observation",
+  "mission_id": "demo-20261104-001",
+  "epoch": 1,
+  "seq": 2,
+  "sent_at": "2026-11-04T13:00:10.000Z",
+  "source": "drone",
+  "destination": "ground",
+  "kind": "drone.observation",
+  "correlation_id": null,
+  "expires_at": null,
+  "simulated": true,
+  "payload": {
+    "device_id": "drone-01",
+    "flight_state": "airborne",
+    "battery_percent": 74,
+    "pose": null,
+    "height_estimate_m": 4.0,
+    "height_reference": "floor_agl",
+    "control_mode": "autonomous_verified",
+    "beacon": {
+      "beacon_id": "tello-demo-01",
+      "bssid": "02:00:00:00:00:01",
+      "ssid": "TELLO-DEMO",
+      "beacon_epoch": 3,
+      "hold_state": "stable",
+      "verified_at": "2026-11-04T13:00:10.000Z",
+      "hold_valid_until": "2026-11-04T13:00:12.000Z"
+    },
+    "frame": {
+      "frame_id": "drone-downward-001",
+      "image_ref": "artifact://demo-20261104-001/drone/downward-001.jpg",
+      "sha256": "0f0479fff4658167e274ded2e2bdc58a9cc45ebdd667c955fb2a2f636906470f",
+      "captured_at": "2026-11-04T13:00:10.000Z",
+      "camera_id": "downward",
+      "camera_epoch": 1,
+      "width_px": 320,
+      "height_px": 240,
+      "camera_frame_id": "drone/camera_downward",
+      "camera_to_body_calibration_id": "synthetic-calibration-v1",
+      "simulated": true
+    },
+    "active_command_id": null
+  }
+}

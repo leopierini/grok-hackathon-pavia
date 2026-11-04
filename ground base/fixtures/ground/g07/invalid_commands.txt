@@ -1,0 +1,7 @@
+arrived
+arrived lobby
+arrived room_2 extra
+status extra
+flight-ready now
+launch
+status;rm

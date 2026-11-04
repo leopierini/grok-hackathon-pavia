@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v2",
+  "task_id": "GROUND-12",
+  "slot": "feature.v2_capabilities",
+  "factory": "patrol.ground.extensions.g12.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g12.scenarios:cases"
+}

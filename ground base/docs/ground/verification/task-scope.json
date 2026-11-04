@@ -1,0 +1,439 @@
+[
+  {
+    "task": 11,
+    "title": "Validate v2 envelopes and keep the v1 robot contract unchanged",
+    "spec_line": 1842,
+    "branch": "codex/ground-11",
+    "branch_tip": "1ce10f069b7bc51b1c61d9c5daf857981a8201ba",
+    "merged": true,
+    "owned_tests": 17,
+    "test_files": [
+      "tests/ground/g11/test_accept.py",
+      "tests/ground/g11/test_dedup.py",
+      "tests/ground/g11/test_reject.py",
+      "tests/ground/g11/test_simulation.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 6,
+    "assertions_all_seeds": 360,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Strict envelopes/directions/identity; command ACKs share the issued ID; sequence replay and old-epoch cached replay rejected."
+  },
+  {
+    "task": 12,
+    "title": "Admit device capabilities and arm only reported features",
+    "spec_line": 1987,
+    "branch": "codex/ground-12",
+    "branch_tip": "9f3783501060ea2a72d1fe94e1bc0ac57316fc2b",
+    "merged": true,
+    "owned_tests": 19,
+    "test_files": [
+      "tests/ground/g12/test_admit.py",
+      "tests/ground/g12/test_simulation.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 9,
+    "assertions_all_seeds": 612,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Per-peer validated capabilities and real/fake separation; no invented controlled motion, Pi link, height, or radio."
+  },
+  {
+    "task": 13,
+    "title": "Ingest drone observations and preserve height reference",
+    "spec_line": 2131,
+    "branch": "codex/ground-13",
+    "branch_tip": "868232c86c2e87a18210581debf9f6ed655686f0",
+    "merged": true,
+    "owned_tests": 31,
+    "test_files": [
+      "tests/ground/g13/test_edges.py",
+      "tests/ground/g13/test_observation.py",
+      "tests/ground/g13/test_simulation.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 5,
+    "assertions_all_seeds": 231,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Observation identity, camera, pose and missing measurements; frame bytes and beacon hold delegated to their owners."
+  },
+  {
+    "task": 14,
+    "title": "Check camera epoch, frame provenance, and image bytes",
+    "spec_line": 2274,
+    "branch": "codex/ground-14",
+    "branch_tip": "dd3b4991f7e653cb3c47bafc6228ad0b1510b2b6",
+    "merged": true,
+    "owned_tests": 23,
+    "test_files": [
+      "tests/ground/g14/test_bytes.py",
+      "tests/ground/g14/test_epoch.py",
+      "tests/ground/g14/test_harness.py",
+      "tests/ground/g14/test_hash.py",
+      "tests/ground/g14/test_identity.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 15,
+    "assertions_all_seeds": 855,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Actual JPEG bytes, hash, dimensions, artifact containment and frame identity; immutable evidence cannot establish hardware freshness."
+  },
+  {
+    "task": 15,
+    "title": "Schedule vision requests and drop stale frames",
+    "spec_line": 2418,
+    "branch": "codex/ground-15",
+    "branch_tip": "fdbfd13bcc8589a406abb0768dca0f278e455582",
+    "merged": true,
+    "owned_tests": 37,
+    "test_files": [
+      "tests/ground/g15/test_age.py",
+      "tests/ground/g15/test_envelope.py",
+      "tests/ground/g15/test_inflight.py",
+      "tests/ground/g15/test_isolation.py",
+      "tests/ground/g15/test_model.py",
+      "tests/ground/g15/test_simulation.py",
+      "tests/ground/g15/test_stages.py",
+      "tests/ground/g15/test_timeout.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 12,
+    "assertions_all_seeds": 900,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "One in-flight vision request, newest pending frame, expiry and clock-error-plus-age budget; capture precision preserved."
+  },
+  {
+    "task": 16,
+    "title": "Validate xAI decisions and withhold motor authority",
+    "spec_line": 2562,
+    "branch": "codex/ground-16",
+    "branch_tip": "b04f2958af29c0209133ba92182d2c6a0e61a483",
+    "merged": true,
+    "owned_tests": 12,
+    "test_files": [
+      "tests/ground/g16/test_rejections.py",
+      "tests/ground/g16/test_track.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 18,
+    "assertions_all_seeds": 1194,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Real stage entry wired; exact request/frame/track/camera/model/prompt correlation and local expiry/authority checks; no motor calls."
+  },
+  {
+    "task": 17,
+    "title": "Approve one bounded drone primitive at a time",
+    "spec_line": 2706,
+    "branch": "codex/ground-17",
+    "branch_tip": "985c350e7810e8f11a222a848f5f3e36278b43b4",
+    "merged": true,
+    "owned_tests": 38,
+    "test_files": [
+      "tests/ground/g17/test_approval.py",
+      "tests/ground/g17/test_isolation.py",
+      "tests/ground/g17/test_rejection.py",
+      "tests/ground/g17/test_simulation.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 18,
+    "assertions_all_seeds": 951,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Allowlisted bounded drone command approval; current safety rechecked before cache replay; conflicting request IDs and mutable cache results rejected."
+  },
+  {
+    "task": 18,
+    "title": "Track drone acknowledgements and preserve unknown landing",
+    "spec_line": 2850,
+    "branch": "codex/ground-18",
+    "branch_tip": "65be68c0a1934d1c60327a1bba348eab2a3e7976",
+    "merged": true,
+    "owned_tests": 35,
+    "test_files": [
+      "tests/ground/g18/test_acks.py",
+      "tests/ground/g18/test_edges.py",
+      "tests/ground/g18/test_simulation.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 11,
+    "assertions_all_seeds": 609,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "ACK lifecycle, duplicate/terminal conflict handling, unknown result queries, and no automatic second takeoff."
+  },
+  {
+    "task": 19,
+    "title": "Require a stable beacon hold and advance beacon epoch after motion",
+    "spec_line": 2994,
+    "branch": "codex/ground-19",
+    "branch_tip": "dd14a8804d244750df7c0184182bd3d8dbe67275",
+    "merged": true,
+    "owned_tests": 33,
+    "test_files": [
+      "tests/ground/g19/test_epoch.py",
+      "tests/ground/g19/test_hold.py",
+      "tests/ground/g19/test_rejection.py",
+      "tests/ground/g19/test_simulation.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 10,
+    "assertions_all_seeds": 513,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Moving/expired beacon blocks dog permission; fresh hold and beacon epoch required; authoritative halt wins."
+  },
+  {
+    "task": 20,
+    "title": "Accept dog navigation health and safe local candidates",
+    "spec_line": 3138,
+    "branch": "codex/ground-20",
+    "branch_tip": "ffcae3b23563dd6007bad15f7e703eae420767eb",
+    "merged": true,
+    "owned_tests": 43,
+    "test_files": [
+      "tests/ground/g20/test_blocked.py",
+      "tests/ground/g20/test_clearance.py",
+      "tests/ground/g20/test_examples.py",
+      "tests/ground/g20/test_filters.py",
+      "tests/ground/g20/test_motion.py",
+      "tests/ground/g20/test_readiness.py",
+      "tests/ground/g20/test_simulation.py",
+      "tests/ground/g20/test_transport.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 17,
+    "assertions_all_seeds": 984,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Accept only peer-reported safe candidate IDs with frame/map/expiry/tether constraints; no SLAM implementation or invented detour."
+  },
+  {
+    "task": 21,
+    "title": "Validate Raspberry Pi RSSI windows sampled on the dog",
+    "spec_line": 3281,
+    "branch": "codex/ground-21",
+    "branch_tip": "dfb953cd92f2573d846807356ac6ed44971d4a0c",
+    "merged": true,
+    "owned_tests": 35,
+    "test_files": [
+      "tests/ground/g21/test_binding.py",
+      "tests/ground/g21/test_fields.py",
+      "tests/ground/g21/test_heartbeat.py",
+      "tests/ground/g21/test_nosignal.py",
+      "tests/ground/g21/test_pose.py",
+      "tests/ground/g21/test_sentinel.py",
+      "tests/ground/g21/test_simulation.py",
+      "tests/ground/g21/test_window.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 10,
+    "assertions_all_seeds": 594,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Pi RSSI window BSSID/epoch/time/pose/quality validation, null no-signal handling; no dBm-to-meters conversion."
+  },
+  {
+    "task": 22,
+    "title": "Choose an RSSI step only from safe dog candidates",
+    "spec_line": 3425,
+    "branch": "codex/ground-22",
+    "branch_tip": "a7703ebf0be10883509eb15793dd5859dc5e077b",
+    "merged": true,
+    "owned_tests": 14,
+    "test_files": [
+      "tests/ground/g22/test_homing.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 26,
+    "assertions_all_seeds": 1260,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Comparable RSSI windows, bounded exploration/hysteresis/no-progress stops; actual selection result exposed to composition."
+  },
+  {
+    "task": 23,
+    "title": "Issue leased dog commands and a priority halt",
+    "spec_line": 3569,
+    "branch": "codex/ground-23",
+    "branch_tip": "f10f47772cf6523fe18564509d694c203908bfde",
+    "merged": true,
+    "owned_tests": 23,
+    "test_files": [
+      "tests/ground/g23/test_command.py",
+      "tests/ground/g23/test_halt.py",
+      "tests/ground/g23/test_rejection.py",
+      "tests/ground/g23/test_replay.py",
+      "tests/ground/g23/test_simulation.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 16,
+    "assertions_all_seeds": 1008,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Leased dog commands require current authority, stationary/standing/avoidance and cable bounds; changed motion under one selection ID rejected."
+  },
+  {
+    "task": 24,
+    "title": "Track dog acknowledgements and rejected steps",
+    "spec_line": 3713,
+    "branch": "codex/ground-24",
+    "branch_tip": "dd42321fae898b0aa66d11991e154668cb87ed44",
+    "merged": true,
+    "owned_tests": 19,
+    "test_files": [
+      "tests/ground/g24/test_edges.py",
+      "tests/ground/g24/test_lifecycle.py",
+      "tests/ground/g24/test_simulation.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 14,
+    "assertions_all_seeds": 810,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "ACK accepted/running/completed are separate; active/uncertain commands block another step; verified stationary and faulted replay checked."
+  },
+  {
+    "task": 25,
+    "title": "Hand the dog from RSSI to its own camera",
+    "spec_line": 3856,
+    "branch": "codex/ground-25",
+    "branch_tip": "e51cbd4b27f11640aabb97538dda238c772adc24",
+    "merged": true,
+    "owned_tests": 26,
+    "test_files": [
+      "tests/ground/g25/test_acquire.py",
+      "tests/ground/g25/test_manifest.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 18,
+    "assertions_all_seeds": 936,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Two fresh same-track dog front-camera hits; ambiguous/wrong track goes to review; approach and goal remain separate."
+  },
+  {
+    "task": 26,
+    "title": "Accept the demo goal only from separate proximity evidence",
+    "spec_line": 4000,
+    "branch": "codex/ground-26",
+    "branch_tip": "2bcbcda54faffabbf739cdb1576f2ff3b9d3e272",
+    "merged": true,
+    "owned_tests": 9,
+    "test_files": [
+      "tests/ground/g26/test_proximity.py",
+      "tests/ground/g26/test_simulation.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 24,
+    "assertions_all_seeds": 1512,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Separate dog range and drone horizontal offset, thresholds/freshness/sources; no goal from RSSI, obstacle clearance or one 3D distance."
+  },
+  {
+    "task": 27,
+    "title": "Separate demo-goal completion from landing recovery",
+    "spec_line": 4143,
+    "branch": "codex/ground-27",
+    "branch_tip": "8d56a3683b4481fa0cb4e0bd9a3808d17c235634",
+    "merged": true,
+    "owned_tests": 20,
+    "test_files": [
+      "tests/ground/g27/test_edges.py",
+      "tests/ground/g27/test_recovery.py",
+      "tests/ground/g27/test_simulation.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 10,
+    "assertions_all_seeds": 408,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Goal and aircraft recovery independent; unknown landing stays latched until new verified recovery evidence; prior legitimate trace allowed."
+  },
+  {
+    "task": 28,
+    "title": "Halt, drop the link, and expire leases without waiting for Grok",
+    "spec_line": 4287,
+    "branch": "codex/ground-28",
+    "branch_tip": "7c7578b9690834b7df2683ada3875aa5fb72a641",
+    "merged": true,
+    "owned_tests": 20,
+    "test_files": [
+      "tests/ground/g28/test_safety.py",
+      "tests/ground/g28/test_simulation.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 17,
+    "assertions_all_seeds": 1020,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Immediate halt/link-loss/lease-expiry latch and independent stop requests; pending work and reset gates preserved."
+  },
+  {
+    "task": 29,
+    "title": "Journal v2 messages and keep the proposed team log schema",
+    "spec_line": 4431,
+    "branch": "codex/ground-29",
+    "branch_tip": "c9591a8b14ede46891940292d7be341d59d351f6",
+    "merged": true,
+    "owned_tests": 23,
+    "test_files": [
+      "tests/ground/g29/test_catalog.py",
+      "tests/ground/g29/test_correlation.py",
+      "tests/ground/g29/test_kinds.py",
+      "tests/ground/g29/test_simulation.py",
+      "tests/ground/g29/test_summary.py",
+      "tests/ground/g29/test_writer.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 8,
+    "assertions_all_seeds": 390,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Correlation-preserving redacted v2 journal composed with the real G04 disk writer; open binding, modes, ticket and clock metadata repaired."
+  },
+  {
+    "task": 30,
+    "title": "Check Ethernet, Wi-Fi, and the Pi data path before arming",
+    "spec_line": 4575,
+    "branch": "codex/ground-30",
+    "branch_tip": "fb808492a5f01e65d7aa85279d9e583098e228a6",
+    "merged": true,
+    "owned_tests": 18,
+    "test_files": [
+      "tests/ground/g30/test_blocks.py",
+      "tests/ground/g30/test_edges.py",
+      "tests/ground/g30/test_ready.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 21,
+    "assertions_all_seeds": 1425,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Ethernet/Wi-Fi/Pi/internet topology validation, cable acceptance and missing-path refusal; no radio fallback or OS route mutation."
+  },
+  {
+    "task": 31,
+    "title": "Compute demo timings and leave unknown values empty",
+    "spec_line": 4719,
+    "branch": "codex/ground-31",
+    "branch_tip": "686a3219908c055630b1942a119665293671d4bc",
+    "merged": true,
+    "owned_tests": 24,
+    "test_files": [
+      "tests/ground/g31/test_edges.py",
+      "tests/ground/g31/test_manifest.py",
+      "tests/ground/g31/test_metrics.py",
+      "tests/ground/g31/test_simulation.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 8,
+    "assertions_all_seeds": 504,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Metrics from actual composed journal records with one clock domain; missing values/accuracy stay null with reasons."
+  },
+  {
+    "task": 32,
+    "title": "Rehearse the drone-first demo offline and write the operator script",
+    "spec_line": 4863,
+    "branch": "codex/ground-32",
+    "branch_tip": "292a517da737bf4345f53404ece22f5f5af577b4",
+    "merged": true,
+    "owned_tests": 12,
+    "test_files": [
+      "tests/ground/g32/test_faults.py",
+      "tests/ground/g32/test_happy.py",
+      "tests/ground/g32/test_runs.py"
+    ],
+    "simulation_runs": 3,
+    "cases_per_run": 13,
+    "assertions_all_seeds": 795,
+    "scope_review": "software verified; external acceptance remains separate",
+    "notes": "Owned isolated rehearsal stays independent; separate composed runner exercises real G11–31 providers and all Ground base services."
+  }
+]

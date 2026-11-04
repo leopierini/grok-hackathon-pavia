@@ -1,0 +1,1871 @@
+{
+  "type": "object",
+  "properties": {
+    "protocol_version": {
+      "const": "2.0-draft"
+    },
+    "message_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "mission_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "epoch": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "enum": [
+        "ground",
+        "drone",
+        "dog",
+        "pi",
+        "vision",
+        "operator"
+      ]
+    },
+    "destination": {
+      "enum": [
+        "ground",
+        "drone",
+        "dog",
+        "pi",
+        "vision",
+        "all"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "capabilities.report",
+        "drone.observation",
+        "dog.observation",
+        "rssi.window",
+        "navigation.candidates",
+        "vision.request",
+        "vision.decision",
+        "motion.proposal",
+        "dog.command",
+        "drone.command",
+        "command.ack",
+        "proximity.evidence",
+        "mission.event",
+        "heartbeat"
+      ]
+    },
+    "correlation_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "expires_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "simulated": {
+      "type": "boolean"
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "protocol_version",
+    "message_id",
+    "mission_id",
+    "epoch",
+    "seq",
+    "sent_at",
+    "source",
+    "destination",
+    "kind",
+    "correlation_id",
+    "expires_at",
+    "simulated",
+    "payload"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:robot-patrol:message:2.0-draft",
+  "title": "Robot Patrol v2 application message (draft)",
+  "$defs": {
+    "pose": {
+      "type": "object",
+      "properties": {
+        "frame_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "map_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "map_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "x_m": {
+          "type": "number"
+        },
+        "y_m": {
+          "type": "number"
+        },
+        "z_m": {
+          "type": "number"
+        },
+        "yaw_rad": {
+          "type": "number"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "valid": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "frame_id",
+        "map_id",
+        "map_epoch",
+        "x_m",
+        "y_m",
+        "z_m",
+        "yaw_rad",
+        "observed_at",
+        "valid"
+      ],
+      "additionalProperties": false
+    },
+    "frame": {
+      "type": "object",
+      "properties": {
+        "frame_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "image_ref": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "camera_id": {
+          "enum": [
+            "front",
+            "downward"
+          ]
+        },
+        "camera_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "width_px": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height_px": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "camera_frame_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "camera_to_body_calibration_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "simulated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "frame_id",
+        "image_ref",
+        "sha256",
+        "captured_at",
+        "camera_id",
+        "camera_epoch",
+        "width_px",
+        "height_px",
+        "camera_frame_id",
+        "camera_to_body_calibration_id",
+        "simulated"
+      ],
+      "additionalProperties": false
+    },
+    "beacon": {
+      "type": "object",
+      "properties": {
+        "beacon_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "bssid": {
+          "type": "string",
+          "pattern": "^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$"
+        },
+        "ssid": {
+          "type": "string"
+        },
+        "beacon_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hold_state": {
+          "enum": [
+            "stable",
+            "moving",
+            "unknown"
+          ]
+        },
+        "verified_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "hold_valid_until": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "beacon_id",
+        "bssid",
+        "ssid",
+        "beacon_epoch",
+        "hold_state",
+        "verified_at",
+        "hold_valid_until"
+      ],
+      "additionalProperties": false
+    },
+    "candidate": {
+      "type": "object",
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "frame_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "map_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "map_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "delta_x_m": {
+          "type": "number"
+        },
+        "delta_y_m": {
+          "type": "number"
+        },
+        "delta_yaw_rad": {
+          "type": "number"
+        },
+        "safe": {
+          "type": "boolean"
+        },
+        "clearance_m": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "snapshot_id",
+        "frame_id",
+        "map_id",
+        "map_epoch",
+        "delta_x_m",
+        "delta_y_m",
+        "delta_yaw_rad",
+        "safe",
+        "clearance_m",
+        "valid_until"
+      ],
+      "additionalProperties": false
+    },
+    "detection": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "enum": [
+            "person"
+          ]
+        },
+        "track_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "box_xyxy_norm": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "minItems": 4,
+          "maxItems": 4
+        }
+      },
+      "required": [
+        "label",
+        "track_id",
+        "confidence",
+        "box_xyxy_norm"
+      ],
+      "additionalProperties": false
+    },
+    "sample": {
+      "type": "object",
+      "properties": {
+        "sample_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "rssi_dbm": {
+          "type": "number",
+          "minimum": -150,
+          "maximum": 0
+        },
+        "pose": {
+          "$ref": "#/$defs/pose"
+        }
+      },
+      "required": [
+        "sample_id",
+        "captured_at",
+        "rssi_dbm",
+        "pose"
+      ],
+      "additionalProperties": false
+    },
+    "motion": {
+      "type": "object",
+      "properties": {
+        "frame_id": {
+          "enum": [
+            "dog/base_link"
+          ]
+        },
+        "linear_x_m_s": {
+          "type": "number"
+        },
+        "linear_y_m_s": {
+          "type": "number"
+        },
+        "angular_z_rad_s": {
+          "type": "number"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "candidate_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "map_epoch": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "frame_id",
+        "linear_x_m_s",
+        "linear_y_m_s",
+        "angular_z_rad_s",
+        "duration_ms",
+        "candidate_id",
+        "snapshot_id",
+        "map_epoch"
+      ],
+      "additionalProperties": false
+    },
+    "capabilities.report": {
+      "type": "object",
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "role": {
+          "enum": [
+            "dog",
+            "drone",
+            "pi",
+            "vision"
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "software_version": {
+          "type": "string"
+        },
+        "supported_commands": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64
+        },
+        "camera_ids": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "front",
+              "downward"
+            ]
+          },
+          "maxItems": 2
+        },
+        "pose_frames": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16
+        },
+        "features": {
+          "type": "object",
+          "properties": {
+            "controlled_motion": {
+              "type": "boolean"
+            },
+            "downward_video": {
+              "type": "boolean"
+            },
+            "rssi_receiver": {
+              "type": "boolean"
+            },
+            "lidar": {
+              "type": "boolean"
+            },
+            "slam": {
+              "type": "boolean"
+            },
+            "target_range": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "controlled_motion",
+            "downward_video",
+            "rssi_receiver",
+            "lidar",
+            "slam",
+            "target_range"
+          ],
+          "additionalProperties": false
+        },
+        "validated": {
+          "type": "boolean"
+        },
+        "acceptance_evidence_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "device_id",
+        "role",
+        "model",
+        "software_version",
+        "supported_commands",
+        "camera_ids",
+        "pose_frames",
+        "features",
+        "validated",
+        "acceptance_evidence_ref"
+      ],
+      "additionalProperties": false
+    },
+    "drone.observation": {
+      "type": "object",
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "flight_state": {
+          "enum": [
+            "grounded",
+            "airborne",
+            "unknown"
+          ]
+        },
+        "battery_percent": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pose": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/pose"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "height_estimate_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "height_reference": {
+          "enum": [
+            "floor_agl",
+            "takeoff_relative",
+            "unknown"
+          ]
+        },
+        "control_mode": {
+          "enum": [
+            "autonomous_verified",
+            "operator_supervised",
+            "unavailable"
+          ]
+        },
+        "beacon": {
+          "$ref": "#/$defs/beacon"
+        },
+        "frame": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/frame"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "active_command_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "device_id",
+        "flight_state",
+        "battery_percent",
+        "pose",
+        "height_estimate_m",
+        "height_reference",
+        "control_mode",
+        "beacon",
+        "frame",
+        "active_command_id"
+      ],
+      "additionalProperties": false
+    },
+    "dog.observation": {
+      "type": "object",
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "standing": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stationary": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "avoidance_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "transport": {
+          "enum": [
+            "ethernet",
+            "wifi"
+          ]
+        },
+        "pose": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/pose"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "navigation_mode": {
+          "enum": [
+            "slam_local_planner",
+            "reactive_avoidance",
+            "unavailable"
+          ]
+        },
+        "slam_state": {
+          "enum": [
+            "localized",
+            "lost",
+            "not_available"
+          ]
+        },
+        "lidar_observed_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "minimum_clearance_m": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frame": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/frame"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "active_command_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "device_id",
+        "standing",
+        "stationary",
+        "avoidance_enabled",
+        "transport",
+        "pose",
+        "navigation_mode",
+        "slam_state",
+        "lidar_observed_at",
+        "minimum_clearance_m",
+        "frame",
+        "active_command_id"
+      ],
+      "additionalProperties": false
+    },
+    "rssi.window": {
+      "type": "object",
+      "properties": {
+        "receiver_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "receiver_mount": {
+          "enum": [
+            "dog"
+          ]
+        },
+        "interface": {
+          "type": "string"
+        },
+        "beacon_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "bssid": {
+          "type": "string",
+          "pattern": "^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$"
+        },
+        "beacon_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "window_start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "window_end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "clock_error_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "samples": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sample"
+          },
+          "maxItems": 100
+        },
+        "median_rssi_dbm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "spread_db": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "quality": {
+          "enum": [
+            "valid",
+            "noisy",
+            "stale",
+            "unavailable"
+          ]
+        }
+      },
+      "required": [
+        "receiver_id",
+        "receiver_mount",
+        "interface",
+        "beacon_id",
+        "bssid",
+        "beacon_epoch",
+        "window_start",
+        "window_end",
+        "clock_error_ms",
+        "samples",
+        "median_rssi_dbm",
+        "spread_db",
+        "quality"
+      ],
+      "additionalProperties": false
+    },
+    "navigation.candidates": {
+      "type": "object",
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "snapshot_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "map_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "map_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "navigation_mode": {
+          "enum": [
+            "slam_local_planner",
+            "reactive_avoidance",
+            "unavailable"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/candidate"
+          },
+          "maxItems": 16
+        },
+        "blocked": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "device_id",
+        "snapshot_id",
+        "map_id",
+        "map_epoch",
+        "navigation_mode",
+        "observed_at",
+        "candidates",
+        "blocked",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "vision.request": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "provider": {
+          "enum": [
+            "xai"
+          ]
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "prompt_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "stage": {
+          "enum": [
+            "drone_search",
+            "drone_track",
+            "dog_acquire",
+            "dog_approach"
+          ]
+        },
+        "frame": {
+          "$ref": "#/$defs/frame"
+        },
+        "target_description": {
+          "type": "string"
+        },
+        "active_track_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scene_context": {
+          "type": "object",
+          "properties": {
+            "staged_demo": {
+              "type": "boolean"
+            },
+            "area_closed_by_operator": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "staged_demo",
+            "area_closed_by_operator"
+          ],
+          "additionalProperties": false
+        },
+        "max_evidence_age_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "request_id",
+        "provider",
+        "model_id",
+        "prompt_version",
+        "stage",
+        "frame",
+        "target_description",
+        "active_track_id",
+        "scene_context",
+        "max_evidence_age_ms"
+      ],
+      "additionalProperties": false
+    },
+    "vision.decision": {
+      "type": "object",
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "frame_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "frame_captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "provider": {
+          "enum": [
+            "xai"
+          ]
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "prompt_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "target_state": {
+          "enum": [
+            "person_visible",
+            "not_visible",
+            "uncertain"
+          ]
+        },
+        "detections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/detection"
+          },
+          "maxItems": 10
+        },
+        "suggested_action": {
+          "enum": [
+            "continue_search",
+            "hold",
+            "reposition",
+            "dispatch_dog",
+            "continue_homing",
+            "switch_to_dog_vision",
+            "approach",
+            "stop",
+            "review"
+          ]
+        },
+        "image_direction": {
+          "enum": [
+            "left",
+            "center",
+            "right",
+            "unknown"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "frame_id",
+        "frame_captured_at",
+        "provider",
+        "model_id",
+        "prompt_version",
+        "target_state",
+        "detections",
+        "suggested_action",
+        "image_direction",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "motion.proposal": {
+      "type": "object",
+      "properties": {
+        "proposal_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "target_component": {
+          "enum": [
+            "dog",
+            "drone"
+          ]
+        },
+        "action": {
+          "enum": [
+            "hold",
+            "search",
+            "reposition",
+            "dispatch",
+            "step",
+            "turn",
+            "approach",
+            "stop",
+            "review"
+          ]
+        },
+        "direction_hint": {
+          "enum": [
+            "left",
+            "center",
+            "right",
+            "unknown"
+          ]
+        },
+        "track_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence_frame_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidate_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "beacon_epoch": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposal_id",
+        "target_component",
+        "action",
+        "direction_hint",
+        "track_id",
+        "evidence_frame_id",
+        "candidate_id",
+        "beacon_epoch",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "dog.command": {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "proposal_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "action": {
+          "enum": [
+            "stand",
+            "move_local",
+            "turn",
+            "halt"
+          ]
+        },
+        "lease_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "motion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/motion"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "beacon_epoch": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "safety_snapshot_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "command_id",
+        "proposal_id",
+        "action",
+        "lease_ms",
+        "motion",
+        "track_id",
+        "beacon_epoch",
+        "safety_snapshot_id",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "drone.command": {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "proposal_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "action": {
+          "enum": [
+            "takeoff",
+            "search_step",
+            "track_step",
+            "hover",
+            "land"
+          ]
+        },
+        "primitive_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "lease_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "requested_height_m": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "height_reference": {
+          "enum": [
+            "floor_agl",
+            "takeoff_relative",
+            "unknown"
+          ]
+        },
+        "evidence_frame_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "camera_id": {
+          "enum": [
+            "front",
+            "downward"
+          ]
+        },
+        "beacon_epoch": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "command_id",
+        "proposal_id",
+        "action",
+        "primitive_id",
+        "lease_ms",
+        "requested_height_m",
+        "height_reference",
+        "evidence_frame_id",
+        "track_id",
+        "camera_id",
+        "beacon_epoch",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "command.ack": {
+      "type": "object",
+      "properties": {
+        "command_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "state": {
+          "enum": [
+            "accepted",
+            "running",
+            "completed",
+            "rejected",
+            "cancelled",
+            "failed",
+            "unknown"
+          ]
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "observed_motion": {
+          "enum": [
+            "stationary",
+            "moving",
+            "airborne",
+            "grounded",
+            "unknown"
+          ]
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "command_id",
+        "state",
+        "reason_code",
+        "observed_at",
+        "verified",
+        "observed_motion",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "proximity.evidence": {
+      "type": "object",
+      "properties": {
+        "track_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "dog": {
+          "type": "object",
+          "properties": {
+            "range_m": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "source": {
+              "enum": [
+                "lidar_associated",
+                "depth",
+                "operator",
+                "unknown"
+              ]
+            },
+            "association_valid": {
+              "type": "boolean"
+            },
+            "observed_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "stationary": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "range_m",
+            "source",
+            "association_valid",
+            "observed_at",
+            "stationary"
+          ],
+          "additionalProperties": false
+        },
+        "drone": {
+          "type": "object",
+          "properties": {
+            "horizontal_offset_m": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "source": {
+              "enum": [
+                "calibrated_projection",
+                "operator",
+                "unknown"
+              ]
+            },
+            "observed_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "hold_state": {
+              "enum": [
+                "stable",
+                "moving",
+                "unknown"
+              ]
+            }
+          },
+          "required": [
+            "horizontal_offset_m",
+            "source",
+            "observed_at",
+            "hold_state"
+          ],
+          "additionalProperties": false
+        },
+        "thresholds": {
+          "type": "object",
+          "properties": {
+            "dog_range_max_m": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "drone_horizontal_max_m": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "dog_range_max_m",
+            "drone_horizontal_max_m"
+          ],
+          "additionalProperties": false
+        },
+        "operator_confirmed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "track_id",
+        "dog",
+        "drone",
+        "thresholds",
+        "operator_confirmed"
+      ],
+      "additionalProperties": false
+    },
+    "mission.event": {
+      "type": "object",
+      "properties": {
+        "event": {
+          "type": "string"
+        },
+        "phase": {
+          "type": "string"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "enum": [
+                "completed",
+                "unresolved",
+                "aborted",
+                "failed"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "device_recovery_required": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "details": {
+          "type": "object",
+          "maxProperties": 32
+        }
+      },
+      "required": [
+        "event",
+        "phase",
+        "outcome",
+        "device_recovery_required",
+        "reason",
+        "details"
+      ],
+      "additionalProperties": false
+    },
+    "heartbeat": {
+      "type": "object",
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "uptime_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "clock_error_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "healthy": {
+          "type": "boolean"
+        },
+        "last_observation_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "device_id",
+        "uptime_ms",
+        "clock_error_ms",
+        "healthy",
+        "last_observation_at"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "capabilities.report"
+        },
+        "payload": {
+          "$ref": "#/$defs/capabilities.report"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "drone.observation"
+        },
+        "payload": {
+          "$ref": "#/$defs/drone.observation"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "dog.observation"
+        },
+        "payload": {
+          "$ref": "#/$defs/dog.observation"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "rssi.window"
+        },
+        "payload": {
+          "$ref": "#/$defs/rssi.window"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "navigation.candidates"
+        },
+        "payload": {
+          "$ref": "#/$defs/navigation.candidates"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "vision.request"
+        },
+        "payload": {
+          "$ref": "#/$defs/vision.request"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "vision.decision"
+        },
+        "payload": {
+          "$ref": "#/$defs/vision.decision"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "motion.proposal"
+        },
+        "payload": {
+          "$ref": "#/$defs/motion.proposal"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "dog.command"
+        },
+        "payload": {
+          "$ref": "#/$defs/dog.command"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "drone.command"
+        },
+        "payload": {
+          "$ref": "#/$defs/drone.command"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "command.ack"
+        },
+        "payload": {
+          "$ref": "#/$defs/command.ack"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "proximity.evidence"
+        },
+        "payload": {
+          "$ref": "#/$defs/proximity.evidence"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "mission.event"
+        },
+        "payload": {
+          "$ref": "#/$defs/mission.event"
+        }
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "heartbeat"
+        },
+        "payload": {
+          "$ref": "#/$defs/heartbeat"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v2",
+  "task_id": "GROUND-22",
+  "slot": "feature.v2_rssi_homing",
+  "factory": "patrol.ground.extensions.g22.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g22.scenarios:cases"
+}

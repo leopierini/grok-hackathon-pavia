@@ -1,0 +1,8 @@
+{
+  "acceptance_precedence": "halt-over-deadline-over-success",
+  "exact_deadline": "timeout",
+  "zero_budget": "reject-before-factory",
+  "retries": "never",
+  "cancellation_does_not_prove_device_stop": true,
+  "recovery_reuses_cancelled_context": false
+}
