@@ -44,7 +44,7 @@ Every message has: `protocol_version`, `message_id`, `mission_id`, `epoch`, `seq
 
 ## Transport and ownership
 
-The wire format is JSON UTF-8. Ground exposes a **proposed** application WebSocket route `/ws/robot/v2` for a persistent peer session; one complete JSON message per text frame. The actual host/port/authentication must be configured and agreed with the teammate's existing dog app before claiming compatibility. A bridge may map the same envelopes to the app's existing HTTP/WebSocket interface. This document does not claim that endpoint is already implemented.
+The wire format is JSON UTF-8. Ground's operator serves `/ws/robot/v2` on `127.0.0.1:8765` (one JSON object per text frame). Authentication is the `x-ground-operator-token` header, whose value is `GROUND_OPERATOR_TOKEN`. Those three values are published in `config/robot_v2.json`.
 
 Image bytes are transferred/resolved separately through an authenticated local artifact mechanism; `artifact://...` is a reference, not an xAI API image URL. Vision must resolve it, verify the hash, and send actual bytes or a valid accessible image URL. A file path on one machine is not a file on another.
 

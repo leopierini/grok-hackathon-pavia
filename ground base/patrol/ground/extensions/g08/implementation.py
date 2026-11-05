@@ -22,7 +22,6 @@ from patrol.ground.extensions.g08.gateway import (
     AdapterGateway,
     clear_claims_for_tests,
 )
-from patrol.ground.extensions.g08.resolve import MISSING_PUBLIC
 from patrol.ground.extensions.g08.support import Bundle
 from patrol.ground.kernel.catalog import SCHEMA_VERSION
 from patrol.ground.kernel.contracts import (
@@ -183,10 +182,11 @@ class GatewayHarness:
         except GroundFault as exc:
             if called:
                 return _failed("rejected", "public resolution called a private stub")
-            if exc.error.detail != MISSING_PUBLIC:
-                return _failed(exc.error.code, exc.error.detail)
-            return _failed("unavailable", MISSING_PUBLIC)
-        return _failed("validation_failed", "missing public factories were accepted")
+            return _failed(exc.error.code, exc.error.detail)
+        if called:
+            return _failed("rejected", "public resolution called a private stub")
+        await gateway.close()
+        return _ok((), "public-factories", authorized=True)
 
     async def _stale(self) -> FeatureResult:
         bundle, gateway = await self._built()

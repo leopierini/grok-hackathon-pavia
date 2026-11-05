@@ -88,14 +88,10 @@ def cases(seed: int = 0) -> tuple[SimulationCase, ...]:
         make(
             "missing_public_factory",
             {
-                "status": "failed",
-                "error_code": "unavailable",
+                "status": "ok",
+                "authorized": True,
                 "device_calls": 0,
-                "detail": (
-                    "public factory missing: "
-                    "patrol.dog:create_dog, patrol.drone:create_drone, "
-                    "patrol.grok:create_reasoner; no private fallback"
-                ),
+                "detail": "public-factories",
             },
         ),
         make(

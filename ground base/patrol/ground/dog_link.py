@@ -114,6 +114,8 @@ class EthernetDogLink:
         self.ready: dict[str, Any] | None = None
         self._proc: asyncio.subprocess.Process | None = None
         self._io = asyncio.Lock()
+        self._stderr_text = ""
+        self._stderr_task: asyncio.Task[None] | None = None
 
     async def connect(self) -> dict[str, Any]:
         if self._proc is not None:
@@ -144,6 +146,7 @@ class EthernetDogLink:
             limit=4 * 1024 * 1024,
         )
         assert self._proc.stdout is not None
+        self._stderr_task = asyncio.create_task(self._drain_stderr())
         try:
             ready = await self._read_json(45)
         except LinkError as exc:
@@ -243,12 +246,31 @@ class EthernetDogLink:
         # Waiting on the process can stall the operator after the dog has already exited.
         asyncio.create_task(_reap(proc))
 
-    async def _stderr(self) -> str:
+    async def _drain_stderr(self) -> None:
         proc = self._proc
         if proc is None or proc.stderr is None:
-            return ""
-        data = await proc.stderr.read()
-        return data.decode(errors="replace")[-2000:]
+            return
+        parts: list[bytes] = []
+        try:
+            while True:
+                block = await proc.stderr.read(4096)
+                if not block:
+                    break
+                parts.append(block)
+                if sum(len(item) for item in parts) > 65536:
+                    parts = parts[-8:]
+                self._stderr_text = b"".join(parts).decode(errors="replace")[-2000:]
+        except Exception:
+            return
+
+    async def _stderr(self) -> str:
+        task = self._stderr_task
+        if task is not None and not task.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(task), 0.5)
+            except TimeoutError:
+                pass
+        return self._stderr_text
 
 
 async def _reap(proc: asyncio.subprocess.Process) -> None:

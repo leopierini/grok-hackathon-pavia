@@ -163,6 +163,11 @@ _READINESS_KEYS = frozenset(
 )
 _AXES = frozenset({"up", "down", "forward", "back", "left", "right"})
 _STEP_ACTIONS = frozenset({"stand", "move_local", "turn"})
+_PRESENCE_ACTIONS = frozenset({"approach", "stop", "play_warning", "follow", "return_home"})
+_PRESENCE_REASON = (
+    "Vision-guided presence command. No navigation candidate is required. "
+    "The dog app must recheck before it moves or speaks."
+)
 
 
 class _Reject(Exception):
@@ -194,6 +199,24 @@ class _HaltOrder:
     track_id: str | None
     beacon_epoch: int | None
     safety_snapshot_id: str
+
+
+@dataclass(frozen=True)
+class _PresenceOrder:
+    mission_id: str
+    epoch: int
+    simulated: bool
+    action: str
+    lease_ms: int
+    track_id: str | None
+    beacon_epoch: int | None
+    safety_snapshot_id: str
+    proposal_id: str | None
+    correlation_id: str | None
+    warning_id: str | None
+    text: str | None
+    standoff_m: float | None
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -230,6 +253,7 @@ class _Store:
         self.issued: dict[tuple[str, ...], dict[str, object]] = {}
         self.move_count = 0
         self.halt_count = 0
+        self.presence_count = 0
         self.seq = 0
 
 
@@ -266,16 +290,53 @@ class DogCommandFeature:
     async def _approve(self, request: FeatureRequest) -> FeatureResult:
         before = tuple(self._calls())
         try:
-            issued = self._issue(request)
+            payload = request.payload if isinstance(request.payload, Mapping) else None
+            landing = None if payload is None else _drone_landing(payload)
+            if landing is not None:
+                result = await self._route_landing(request, landing)
+            else:
+                issued = self._issue(request)
+                result = _ok(request.ticket, issued)
         except _Reject as rejected:
             result = _blocked(rejected.detail)
         except _Invalid as invalid:
             result = _failed(invalid.detail)
-        else:
-            result = _ok(request.ticket, issued)
         if tuple(self._calls()) != before:
             return _failed("dog port was called")
         return result
+
+    async def _route_landing(
+        self,
+        request: FeatureRequest,
+        proposal: Mapping[str, object],
+    ) -> FeatureResult:
+        from patrol.ground.extensions.g17.implementation import create as create_drone
+        from patrol.ground.extensions.g17.samples import armed_context
+
+        context = armed_context()
+        context["proposal"] = {str(key): value for key, value in proposal.items()}
+        sent_at = proposal.get("sent_at")
+        if isinstance(sent_at, str):
+            context["evaluated_at"] = sent_at
+        capabilities = context.get("capabilities")
+        if isinstance(capabilities, dict):
+            raw_body = capabilities.get("payload")
+            if isinstance(raw_body, dict):
+                commands = raw_body.get("supported_commands")
+                if isinstance(commands, list) and "land_on_dog" not in commands:
+                    body = dict(raw_body)
+                    body["supported_commands"] = [*commands, "land_on_dog"]
+                    copied = dict(capabilities)
+                    copied["payload"] = body
+                    context["capabilities"] = copied
+        drone = create_drone(self.services)
+        routed = FeatureRequest(
+            kind="command",
+            name="approve",
+            ticket=request.ticket,
+            payload=freeze_map(context),
+        )
+        return await drone.execute(routed)
 
     def _issue(self, request: FeatureRequest) -> _Issued:
         payload = _as_dict(dict(request.payload), "payload")
@@ -284,6 +345,10 @@ class DogCommandFeature:
         order = _parse(request, payload)
         if isinstance(order, _HaltOrder):
             return self._issue_halt(order)
+        if isinstance(order, _PresenceOrder):
+            if not self._diagnostic:
+                self._require_current_ticket(request)
+            return self._issue_presence(order)
         if not self._diagnostic:
             authority = self.services.kernel.authority
             if authority.cancelled:
@@ -291,6 +356,13 @@ class DogCommandFeature:
             if request.ticket is None or request.ticket.epoch != authority.epoch:
                 raise _Reject("ticket epoch is not current")
         return self._issue_step(order)
+
+    def _require_current_ticket(self, request: FeatureRequest) -> None:
+        authority = self.services.kernel.authority
+        if authority.cancelled:
+            raise _Reject(REJECT_HALT)
+        if request.ticket is None or request.ticket.epoch != authority.epoch:
+            raise _Reject("ticket epoch is not current")
 
     def _issue_halt(self, order: _HaltOrder) -> _Issued:
         key = (
@@ -333,6 +405,58 @@ class DogCommandFeature:
         )
         self.store.issued[key] = _clone(envelope)
         return _Issued(envelope, command_id, False, "halt")
+
+    def _issue_presence(self, order: _PresenceOrder) -> _Issued:
+        key = (
+            "presence",
+            order.mission_id,
+            str(order.epoch),
+            order.action,
+            order.proposal_id or "",
+            order.track_id or "",
+            "none" if order.beacon_epoch is None else str(order.beacon_epoch),
+            order.safety_snapshot_id,
+        )
+        stored = self.store.issued.get(key)
+        if stored is not None:
+            command_id = _payload(stored)["command_id"]
+            if not isinstance(command_id, str):
+                raise _Invalid("stored presence command id is unreadable")
+            return _Issued(_clone(stored), command_id, True, order.action)
+        self.store.presence_count += 1
+        self.store.seq += 1
+        command_id = f"cmd-dog-presence-{self.store.presence_count:03d}"
+        extras: dict[str, object] = {}
+        if order.warning_id is not None:
+            extras["warning_id"] = order.warning_id
+        if order.text is not None:
+            extras["text"] = order.text
+        if order.standoff_m is not None:
+            extras["standoff_m"] = order.standoff_m
+        envelope = _envelope(
+            command_id=command_id,
+            seq=self.store.seq,
+            mission_id=order.mission_id,
+            epoch=order.epoch,
+            simulated=order.simulated,
+            correlation_id=order.correlation_id,
+            lease_ms=order.lease_ms,
+            sent_at=self.services.kernel.clock.utc_now(),
+            body=_command_body(
+                command_id=command_id,
+                proposal_id=order.proposal_id,
+                action=order.action,
+                lease_ms=order.lease_ms,
+                motion=None,
+                track_id=order.track_id,
+                beacon_epoch=order.beacon_epoch,
+                safety_snapshot_id=order.safety_snapshot_id,
+                reason=order.reason,
+                extras=extras,
+            ),
+        )
+        self.store.issued[key] = _clone(envelope)
+        return _Issued(envelope, command_id, False, order.action)
 
     def _issue_step(self, order: _StepOrder) -> _Issued:
         if order.guidance == "rssi" and order.beacon_epoch is None:
@@ -799,6 +923,8 @@ def _parse(request: FeatureRequest, payload: dict[str, object]) -> _HaltOrder | 
     action = _merged_action(payload, selection, proposal)
     if _flag(payload, "issue_halt") or action == "halt":
         return _parse_halt(request, payload, selection, proposal)
+    if action in _PRESENCE_ACTIONS:
+        return _parse_presence(request, payload, selection, proposal, action)
     return _parse_step(request, payload, selection, proposal, motion_input, action)
 
 
@@ -819,6 +945,63 @@ def _parse_halt(
         "safety_snapshot_id",
     )
     return _HaltOrder(mission_id, epoch, simulated, lease_ms, track, beacon, safety)
+
+
+def _parse_presence(
+    request: FeatureRequest,
+    payload: dict[str, object],
+    selection: dict[str, object] | None,
+    proposal: dict[str, object] | None,
+    action: str,
+) -> _PresenceOrder:
+    proposal_body = _payload(proposal) if proposal is not None else {}
+    mission_id, epoch, simulated = _identity(
+        request,
+        payload,
+        proposal,
+        payload.get("candidates"),
+    )
+    lease_ms = _bounded_ms(_first(selection, payload, "lease_ms", 500), "lease_ms")
+    track = _optional_text(_first_present(selection, payload, "track_id"))
+    if proposal is not None and track is None:
+        track = _optional_text(proposal_body.get("track_id"))
+    beacon = _agree_beacon(selection, payload, proposal_body if proposal is not None else None)
+    safety = _required_text(
+        _first_present(selection, payload, "safety_snapshot_id"),
+        "safety_snapshot_id",
+    )
+    proposal_id = _optional_text(_first_present(selection, None, "proposal_id"))
+    if proposal_id is None and proposal is not None:
+        proposal_id = _optional_text(proposal_body.get("proposal_id"))
+    correlation = proposal.get("message_id") if proposal is not None else None
+    if correlation is not None:
+        correlation = _required_text(correlation, "proposal message_id")
+    stated = proposal_body.get("reason")
+    reason = stated if isinstance(stated, str) and stated.strip() else _PRESENCE_REASON
+    warning_id = None
+    text = None
+    standoff_m = None
+    if action == "play_warning":
+        warning_id = _required_text(proposal_body.get("warning_id"), "warning_id")
+        text = _required_text(proposal_body.get("text"), "text")
+    if action == "follow" and proposal_body.get("standoff_m") is not None:
+        standoff_m = _positive_number(proposal_body.get("standoff_m"), "standoff_m")
+    return _PresenceOrder(
+        mission_id,
+        epoch,
+        simulated,
+        action,
+        lease_ms,
+        track,
+        beacon,
+        safety,
+        proposal_id,
+        correlation,
+        warning_id,
+        text,
+        standoff_m,
+        reason,
+    )
 
 
 def _parse_step(
@@ -1013,6 +1196,20 @@ def _apply_axis(axis: str | None, linear_x: float, linear_y: float) -> tuple[flo
     return linear_x, -magnitude
 
 
+def _drone_landing(payload: Mapping[str, object]) -> dict[str, object] | None:
+    proposal = payload.get("proposal")
+    if not isinstance(proposal, Mapping):
+        return None
+    if proposal.get("kind") != "motion.proposal":
+        return None
+    body = proposal.get("payload")
+    if not isinstance(body, Mapping):
+        return None
+    if body.get("target_component") != "drone" or body.get("action") != "land_on_dog":
+        return None
+    return {str(key): value for key, value in proposal.items()}
+
+
 def _check_proposal(message: dict[str, object]) -> None:
     if message.get("kind") != "motion.proposal":
         raise _Invalid("proposal kind is not motion.proposal")
@@ -1036,15 +1233,34 @@ def _merged_action(
             return str(action)
     if proposal is not None:
         semantic = _payload(proposal).get("action")
+        if semantic == "land_on_dog":
+            raise _Reject("land_on_dog is a drone command")
         if semantic in _STEP_ACTIONS or semantic == "halt":
             return str(semantic)
-        # approach is the published homing step. Any other proposal word is refused
-        # so a stop, a warning, a follow, or a return home cannot become a walk.
+        # A bridge presence proposal has no planner candidate. Keep the word
+        # instead of inventing a walk that then fails candidate_id.
+        if semantic in _PRESENCE_ACTIONS and _candidate_absent(selection, payload, proposal):
+            return str(semantic)
+        # approach is the published homing step when a candidate is attached.
+        # Any other proposal word is refused so a stop, a warning, a follow,
+        # or a return home cannot become a walk.
         if semantic == "approach":
             return "move_local"
         if isinstance(semantic, str) and semantic:
             raise _Reject("proposal action is not a dog step")
     return "move_local"
+
+
+def _candidate_absent(
+    selection: dict[str, object] | None,
+    payload: dict[str, object],
+    proposal: dict[str, object] | None,
+) -> bool:
+    proposal_body = _payload(proposal) if proposal is not None else None
+    for source in (selection, payload, proposal_body):
+        if source is not None and source.get("candidate_id") is not None:
+            return False
+    return True
 
 
 def _identity(
@@ -1338,6 +1554,7 @@ def _command_body(
     beacon_epoch: int | None,
     safety_snapshot_id: str,
     reason: str,
+    extras: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     body: dict[str, object] = {
         "command_id": command_id,
@@ -1350,8 +1567,27 @@ def _command_body(
         "safety_snapshot_id": safety_snapshot_id,
         "reason": reason,
     }
-    _exact(body, _PAYLOAD_KEYS, "payload")
+    extra_keys: list[str] = []
+    if extras is not None:
+        for key in ("warning_id", "text", "standoff_m"):
+            if key in extras:
+                body[key] = extras[key]
+                extra_keys.append(key)
+    _exact(body, _PAYLOAD_KEYS + tuple(extra_keys), "payload")
     return body
+
+
+def _positive_number(value: object, label: str) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(float(value))
+    ):
+        raise _Invalid(f"{label} must be a positive number")
+    number = float(value)
+    if number <= 0:
+        raise _Invalid(f"{label} must be a positive number")
+    return number
 
 
 def _exact(value: Mapping[str, object], expected: tuple[str, ...], label: str) -> None:

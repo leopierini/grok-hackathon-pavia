@@ -176,6 +176,8 @@ def test_no_robot_sdk_import() -> None:
                 modules.append(node.module)
             for module in modules:
                 assert module.split(".", 1)[0] not in banned
+                # g17 is the drone-command factory. A land_on_dog proposal is handed
+                # there instead of being rewritten into a dog walk.
                 assert not module.startswith("patrol.ground.extensions.g") or module.startswith(
-                    "patrol.ground.extensions.g23"
+                    ("patrol.ground.extensions.g23", "patrol.ground.extensions.g17")
                 )
