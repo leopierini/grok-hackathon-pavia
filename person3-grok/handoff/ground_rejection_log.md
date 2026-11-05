@@ -116,7 +116,9 @@ Message:
     "proposal_id": "proposal-play_warning-1",
     "reason": "Say the go-away warning.",
     "safety_snapshot_id": "safety-presence-001",
-    "track_id": "target-001"
+    "text": "go away",
+    "track_id": "target-001",
+    "warning_id": "go-away"
   },
   "protocol_version": "2.0-draft",
   "sent_at": "2026-11-04T13:00:10.400Z",
@@ -126,7 +128,7 @@ Message:
 }
 ```
 
-- Schema: rejected `payload_shape: payload.action`.
+- Schema: rejected `payload_shape: text,warning_id`.
 
 ### follow
 
@@ -225,6 +227,7 @@ Message:
     "proposal_id": "proposal-follow-2",
     "reason": "Follow the tracked person at the published standoff.",
     "safety_snapshot_id": "safety-presence-001",
+    "standoff_m": 2.0,
     "track_id": "target-001"
   },
   "protocol_version": "2.0-draft",
@@ -235,7 +238,7 @@ Message:
 }
 ```
 
-- Schema: rejected `payload_shape: payload.action`.
+- Schema: rejected `payload_shape: standoff_m`.
 
 ### stop
 

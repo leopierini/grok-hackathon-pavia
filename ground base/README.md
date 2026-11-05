@@ -31,11 +31,15 @@ python -m patrol.ground --dog fake --drone fake --grok fake --scenario unknown_l
 python -m patrol.ground --dog fake --drone fake --grok fake --dog-transport wifi --seed 29
 ```
 
+`--grok real` with `--dog fake` and `--drone fake` sends the three vision
+replies through the signal connector. The key is `XAI_API_KEY` in the
+environment. Dog, drone, and Pi stay scripted. See [INTEGRATION.md](INTEGRATION.md).
+
 Failure scenarios return exit 1 while preserving an unresolved report. Unknown landing
 preserves a reached goal and requires recovery. `--help` lists all scenarios.
 
-Real mode returns exit 2. The teammates' v2 transports/factories, authentication,
-physical acceptance, model choice, and clock negotiation have not been supplied.
+Real dog, drone, or Pi mode returns exit 2. Those teammate transports, physical
+acceptance, and clock negotiation have not been supplied.
 The v1 `run_route`/`inspect` APIs cannot be used as v2 RSSI or scouting transports.
 This repository's simulated success does not establish robot or flight readiness.
 

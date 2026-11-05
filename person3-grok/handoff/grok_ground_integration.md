@@ -1,5 +1,9 @@
 # Grok ↔ Ground presence integration
 
+The drone-first rehearsal (`--dog fake --drone fake --grok real`) does not use
+this presence session. That path is `patrol.ground.signal.assess_frame` in
+Ground. Run notes: [INTEGRATION.md](INTEGRATION.md).
+
 After YOLO has dispatched the dog, Grok only answers still-there / gone / unsure. Ground is the only component that may move a robot. This package never opens a dog or drone socket.
 
 Authoritative schema: `ground base/contracts/message.schema.json` (`2.0-draft`). If this note and that file disagree, the file wins.
@@ -50,4 +54,4 @@ Each step is a `motion.proposal` (`source: vision`, `destination: ground`) plus 
 
 ## Config
 
-`config/grok.example.json` selects `grok-4.20-non-reasoning`, prompt `patrol-v1`, presence prompt `patrol-presence-v1`, and the 5 second request budget. The key stays in `XAI_API_KEY` outside the repo. Real transport stays unset.
+`config/grok.example.json` selects `grok-4.20-non-reasoning`, prompt `patrol-v1`, presence prompt `patrol-presence-v1`, and the 5 second request budget. The key stays in `XAI_API_KEY` outside the repo. `create_reasoner("real")` checks that variable and does not call xAI; the rehearsal image call is the Ground signal connector.

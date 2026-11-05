@@ -77,11 +77,16 @@ class Demo:
         seed: int,
         controls: StepSession | None = None,
         budgets: Mapping[int, tuple[float, float]] | None = None,
+        grok: str = "fake",
     ) -> None:
+        if grok not in {"fake", "real"}:
+            raise fault("invalid_input", "grok mode must be fake or real")
         self.services = services
         self.output = output
         self.scenario = scenario
         self.seed = seed
+        self.grok = grok
+        self.live_calls = 0
         self.providers: dict[int, FeaturePort] = {}
         self.trace: list[Json] = []
         self.messages: list[Json] = []
@@ -356,7 +361,7 @@ class Demo:
                 "frame": frame,
                 "stage": "drone_search",
                 "target_description": TARGET,
-                "settings": self.context["schedule_settings"],
+                "settings": self._schedule_settings(),
                 "active_track_id": None,
                 "clock_error_ms": 0,
             },
@@ -367,19 +372,7 @@ class Demo:
             raise _Stopped(self.reason)
         request = await self.message(request)
         self.advance(random.Random(self.seed).uniform(0.01, 0.02))
-        decision = _load("contracts/examples/drone-vision-decision.json")
-        decision["correlation_id"] = request["message_id"]
-        decision["payload"].update(
-            {
-                "request_id": request["payload"]["request_id"],
-                "frame_id": frame["frame_id"],
-                "frame_captured_at": frame["captured_at"],
-                "model_id": request["payload"]["model_id"],
-                "prompt_version": request["payload"]["prompt_version"],
-                "suggested_action": "reposition",
-                "image_direction": "left",
-            }
-        )
+        decision = self._drone_vision_decision(request, frame)
         decision = await self.message(decision, restamp=True)
         accepted = await self.call(
             16,
@@ -716,24 +709,13 @@ class Demo:
                     "stage": "dog_acquire",
                     "active_track_id": "target-001",
                     "target_description": TARGET,
-                    "settings": self.context["schedule_settings"],
+                    "settings": self._schedule_settings(),
                     "settle": True,
                     "clock_error_ms": 0,
                 },
             )
             request = await self.message(cast(Mapping[str, object], scheduled.data["message"]))
-            decision = _load("contracts/examples/dog-vision-decision.json")
-            decision["message_id"] = f"msg-dog-decision-{index + 1}"
-            decision["correlation_id"] = request["message_id"]
-            decision["payload"].update(
-                {
-                    "request_id": request["payload"]["request_id"],
-                    "frame_id": frame["frame_id"],
-                    "frame_captured_at": frame["captured_at"],
-                    "model_id": request["payload"]["model_id"],
-                    "prompt_version": request["payload"]["prompt_version"],
-                }
-            )
+            decision = self._dog_vision_decision(request, index)
             decision = await self.message(decision, restamp=True)
             await self.call(
                 16,
@@ -753,6 +735,93 @@ class Demo:
         history["rssi_records"] = self.context["homing"]["windows"]
         return history
 
+    def _schedule_settings(self) -> Mapping[str, object]:
+        """Keep the placeholder model on the fake path.
+
+        Task 16 requires the decision's model id to match the request. A real
+        image call cannot send ``CONFIGURE_VERIFIED_IMAGE_MODEL``, so the real
+        path names the model on the request the connector will call.
+        """
+
+        settings = self.context["schedule_settings"]
+        if self.grok != "real":
+            if not isinstance(settings, Mapping):
+                raise fault("invalid_input", "schedule settings must be an object")
+            return settings
+        if not isinstance(settings, Mapping):
+            raise fault("invalid_input", "schedule settings must be an object")
+        from patrol.ground.signal.client import DEFAULT_IMAGE_MODEL
+
+        named = dict(settings)
+        named["model_id"] = DEFAULT_IMAGE_MODEL
+        return named
+
+    def _drone_vision_decision(
+        self,
+        request: Mapping[str, object],
+        frame: Mapping[str, object],
+    ) -> Json:
+        if self.grok == "real":
+            return self._real_decision(request)
+        decision = _load("contracts/examples/drone-vision-decision.json")
+        decision["correlation_id"] = request["message_id"]
+        payload = decision["payload"]
+        if not isinstance(payload, dict):
+            raise fault("invalid_input", "scripted vision decision payload must be an object")
+        request_payload = request["payload"]
+        if not isinstance(request_payload, Mapping):
+            raise fault("invalid_input", "vision request payload must be an object")
+        payload.update(
+            {
+                "request_id": request_payload["request_id"],
+                "frame_id": frame["frame_id"],
+                "frame_captured_at": frame["captured_at"],
+                "model_id": request_payload["model_id"],
+                "prompt_version": request_payload["prompt_version"],
+                "suggested_action": "reposition",
+                "image_direction": "left",
+            }
+        )
+        return decision
+
+    def _dog_vision_decision(self, request: Mapping[str, object], index: int) -> Json:
+        if self.grok == "real":
+            decision = self._real_decision(request)
+        else:
+            decision = _load("contracts/examples/dog-vision-decision.json")
+            decision["correlation_id"] = request["message_id"]
+            payload = decision["payload"]
+            if not isinstance(payload, dict):
+                raise fault("invalid_input", "scripted vision decision payload must be an object")
+            request_payload = request["payload"]
+            if not isinstance(request_payload, Mapping):
+                raise fault("invalid_input", "vision request payload must be an object")
+            frame = request_payload["frame"]
+            if not isinstance(frame, Mapping):
+                raise fault("invalid_input", "vision request frame must be an object")
+            payload.update(
+                {
+                    "request_id": request_payload["request_id"],
+                    "frame_id": frame["frame_id"],
+                    "frame_captured_at": frame["captured_at"],
+                    "model_id": request_payload["model_id"],
+                    "prompt_version": request_payload["prompt_version"],
+                }
+            )
+        decision["message_id"] = f"msg-dog-decision-{index + 1}"
+        return decision
+
+    def _real_decision(self, request: Mapping[str, object]) -> Json:
+        from patrol.ground.signal import SignalError, assess_frame
+
+        try:
+            decision = assess_frame(request)
+        except SignalError as exc:
+            self.reason = f"{exc.code}: {exc.detail}"
+            raise
+        self.live_calls += 1
+        return cast(Json, decision)
+
 
 async def run_demo(
     output: Path,
@@ -762,9 +831,12 @@ async def run_demo(
     transport: str = "ethernet",
     controls: StepSession | None = None,
     budgets: Mapping[int, tuple[float, float]] | None = None,
+    grok: str = "fake",
 ) -> Json:
     if scenario not in SCENARIOS or transport not in {"ethernet", "wifi"}:
         raise fault("invalid_input", "unknown rehearsal scenario or transport")
+    if grok not in {"fake", "real"}:
+        raise fault("invalid_input", "grok mode must be fake or real")
     if isinstance(seed, bool) or not isinstance(seed, int):
         raise fault("invalid_input", "seed must be an integer")
     output = output.resolve()
@@ -792,7 +864,7 @@ async def run_demo(
         ),
         settings,
     )
-    demo = Demo(services, output, scenario, seed, controls, budgets)
+    demo = Demo(services, output, scenario, seed, controls, budgets, grok)
     if controls is not None:
 
         def request_safety(reason: str) -> None:
@@ -848,8 +920,8 @@ async def run_demo(
             "scenario": scenario,
             "seed": seed,
             "evidence": "simulated",
-            "live_call_count": 0,
-            "adapter_modes": {"dog": "fake", "drone": "fake", "grok": "fake"},
+            "live_call_count": demo.live_calls,
+            "adapter_modes": {"dog": "fake", "drone": "fake", "grok": demo.grok},
             "dog_transport": transport,
             "goal_reached": demo.goal_reached,
             "landing_verified": demo.landing_verified,
@@ -860,7 +932,11 @@ async def run_demo(
             "trace": demo.trace,
             "commands": demo.commands,
             "metrics": _plain(metrics.data),
-            "external_adapter_factories": "not supplied; v2 messages are simulated",
+            "external_adapter_factories": (
+                "grok signal connector; dog, drone, and Pi messages stay simulated"
+                if demo.grok == "real"
+                else "not supplied; v2 messages are simulated"
+            ),
             "physical_acceptance": "not performed",
             "cleanup_errors": cleanup_errors,
         }

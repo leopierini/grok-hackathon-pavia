@@ -1,4 +1,4 @@
-"""Ground CLI: explicit all-fake Gate C rehearsal, with live use refused."""
+"""Ground CLI: all-fake rehearsal, with a real Grok vision connector when asked."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from uuid import uuid4
 from patrol.ground.demo import SCENARIOS, run_demo
 from patrol.ground.kernel.catalog import ZONES
 from patrol.ground.kernel.faults import GroundFault
+from patrol.ground.signal import SignalError, require_api_key
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -34,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target")
     parser.add_argument("--captured-at")
     args = parser.parse_args(argv)
-    if "real" in (args.dog, args.drone, args.grok, args.pi):
+    if "real" in (args.dog, args.drone, args.pi):
         print(
             "live operation refused: v2 teammate transport/factory bridges and physical "
             "acceptance have not been supplied; the v1 run_route/inspect API cannot "
@@ -42,6 +43,12 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    if args.grok == "real":
+        try:
+            require_api_key()
+        except SignalError as exc:
+            print(f"grok signal connector refused: {exc}", file=sys.stderr)
+            return 2
     if any((args.config, args.image, args.zone, args.target, args.captured_at)):
         print(
             "input refused: this offline v2 rehearsal uses bundled synthetic peer evidence; "
@@ -60,8 +67,12 @@ def main(argv: list[str] | None = None) -> int:
                 scenario=scenario,
                 seed=args.seed,
                 transport=args.dog_transport,
+                grok=args.grok,
             )
         )
+    except SignalError as exc:
+        print(f"grok signal connector refused: {exc}", file=sys.stderr)
+        return 2
     except (GroundFault, OSError) as exc:
         print(f"rehearsal failed: {exc}", file=sys.stderr)
         return 1
