@@ -1,0 +1,23 @@
+{
+  "id": "room_2_view_v1",
+  "zone": "room_2",
+  "launch_origins": ["floor"],
+  "orientation": "Point the nose along open floor before arming. Do not aim at people or exhibits.",
+  "area": "One floor mark beside the dog. The path never flies over the dog.",
+  "viewpoint": {"forward_cm": 0, "hold_s": 1},
+  "settle_s": 3,
+  "speed_cm_s": 30,
+  "landing_patch": "the takeoff mark; this profile does not translate",
+  "battery_min_percent": 20,
+  "max_flight_s": 25,
+  "command_timeout_s": 8,
+  "takeoff_timeout_s": 20,
+  "floor_note": "Measured 4 Nov: forward 20 undershot and curved, then the drone struggled to go forward at all. The downward camera cannot track this floor, so the distance command never completes. The photo is taken in the hover and the landing mark is the takeoff mark.",
+  "segments": [
+    {"op": "takeoff"},
+    {"op": "settle", "s": 3},
+    {"op": "hold", "s": 1, "capture": true},
+    {"op": "land"}
+  ],
+  "abort": "One takeoff only. If a later move fails, return only when the outbound move was confirmed, then land once. An unconfirmed landing stays unknown and is not retried."
+}

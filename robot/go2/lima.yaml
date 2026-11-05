@@ -1,0 +1,17 @@
+minimumLimaVersion: "2.0.0"
+
+base:
+- template:ubuntu-22.04
+
+vmType: vz
+cpus: 8
+memory: 12GiB
+disk: 40GiB
+
+networks:
+- vzNAT: true
+- lima: go2lan
+
+mounts:
+- location: /Users/ares-pc/localrepo/grok-hackathon-pavia/robot
+  writable: true

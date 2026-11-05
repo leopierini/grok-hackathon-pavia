@@ -1,0 +1,8 @@
+# Local depth check. Install into .venv with Python 3.12.
+# Weights live in models/depth-anything-v2-large and are not committed.
+torch==2.15.0
+torchvision==0.29.2
+transformers==5.22.1
+pillow==13.0.0
+av==19.0.2
+huggingface_hub==2.4.0
