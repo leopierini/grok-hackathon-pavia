@@ -91,14 +91,14 @@ class Settings:
     min_confidence: float = 0.5
     # drone patrol scan (yaw in place while nobody is seen)
     scan: bool = True
-    scan_period_s: float = 3.0
-    scan_axis: float = 0.3
-    scan_nudge_s: float = 0.6
+    scan_period_s: float = 2.5  # pause between scan turns (lets Grok see a still frame)
+    scan_axis: float = 1.0  # x server speed 30 = rc yaw 30
+    scan_nudge_s: float = 1.5
     # drone tracking after detection
     track: bool = True
     track_deadband: float = 0.12
-    track_axis: float = 0.35
-    track_nudge_s: float = 0.4
+    track_axis: float = 0.8  # x server speed 30 = rc yaw 24
+    track_nudge_s: float = 0.5
     track_budget_deg: float = 120.0
     # dog
     dog_stand_on_detect: bool = True

@@ -40,7 +40,7 @@ class FakeDrone:
         return {"ok": True}
 
     async def yaw_nudge(self, axis: float, seconds: float) -> None:
-        assert abs(axis) <= 0.5 and seconds <= 0.8
+        assert abs(axis) <= 1.0 and seconds <= 2.0
         self.nudges.append(axis)
         self.yaw += 10 if axis > 0 else -10
 
@@ -88,7 +88,7 @@ class BrokenGrok(ScriptedGrok):
         raise RuntimeError("xAI unavailable")
 
 
-FAST = dict(drone_vision_period_s=0.05, dog_vision_period_s=0.05, drone_poll_s=0.02,
+FAST = dict(scan_nudge_s=0.01, track_nudge_s=0.01, drone_vision_period_s=0.05, dog_vision_period_s=0.05, drone_poll_s=0.02,
             speak_cooldown_s=0.0, drone_lost_after=3, scan_period_s=0.05, allow_takeoff=True)
 
 

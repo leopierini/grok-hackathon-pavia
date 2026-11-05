@@ -73,9 +73,10 @@ class DroneHttp:
         return await asyncio.to_thread(self._post, "/cmd", {"action": action})
 
     async def yaw_nudge(self, axis: float, seconds: float) -> None:
-        """Yaw only, |axis| <= 0.5, at most 0.8 s, then explicit zero. The server deadman backs it up."""
-        axis = max(-0.5, min(0.5, float(axis)))
-        seconds = max(0.0, min(0.8, float(seconds)))
+        """Yaw only, |axis| <= 1 (times the server's speed setting), at most 2 s, then explicit zero.
+        The server deadman (sticks to zero 300 ms after the last update) backs it up."""
+        axis = max(-1.0, min(1.0, float(axis)))
+        seconds = max(0.0, min(2.0, float(seconds)))
         loop = asyncio.get_running_loop()
         end = loop.time() + seconds
         try:
