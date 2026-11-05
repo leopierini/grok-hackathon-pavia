@@ -160,15 +160,25 @@ def test_real_peers_fail_closed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     )
     assert dog_real == 2
     assert main(["--dog", "fake", "--drone", "real", "--grok", "fake", "--scenario", "halt"]) == 2
-    configured = {"PATROL_DOG_HOST": "192.0.2.10", "PATROL_DOG_PORT": "1"}
-    with pytest.raises(ConfigError, match="does not open a socket"):
-        open_dog("real", tmp_path / "dog-set", configured, None)
-    with pytest.raises(ConfigError, match="does not open a socket"):
-        open_dog(
-            "real",
-            tmp_path / "dog-file",
-            {},
-            {"dog": {"host": "192.0.2.10", "port": 1}},
+    configured = {"PATROL_DOG_HOST": "192.0.2.10", "PATROL_DOG_PORT": "9"}
+    peer = open_dog("real", tmp_path / "dog-set", configured, None, conn_factory=lambda _ip: None)
+    assert peer.real is True
+    assert peer.dog._connected is False
+    assert peer.endpoint_port == 9
+    file_peer = open_dog(
+        "real",
+        tmp_path / "dog-file",
+        {},
+        {"dog": {"host": "192.0.2.10", "port": 9}},
+        conn_factory=lambda _ip: None,
+    )
+    assert file_peer.endpoint_port == 9
+    with pytest.raises(ConfigError, match="i-understand-this-moves-hardware"):
+        run_story(
+            tmp_path / "needs-flag",
+            scenario="halt",
+            dog="real",
+            environ=configured,
         )
     code = main(
         ["--dog", "fake", "--drone", "fake", "--grok", "real", "--scenario", "happy_path"]
