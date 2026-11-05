@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Manual flight</title>
+  <style>
+    :root {
+      --ink: #1c1915;
+      --muted: #5a5348;
+      --paper: #f4f0e7;
+      --card: #fffdf8;
+      --line: #b9af9d;
+      --mark: #b8431f;
+      --ok: #1b6b34;
+      --warn: #8a5a00;
+      --mono: ui-monospace, "SF Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding-bottom: 110px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px 28px;
+      padding: 14px 24px;
+      border-bottom: 3px solid var(--ink);
+      background: var(--card);
+    }
+    h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+    #state {
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      padding: 2px 16px;
+      border: 4px solid var(--ink);
+      background: #d8d2c4;
+    }
+    #state.airborne { background: #bfe5c8; border-color: var(--ok); color: var(--ok); }
+    #state.taking_off, #state.landing { background: #f6d98f; border-color: var(--warn); color: var(--warn); }
+    .big { font-size: 26px; font-weight: 700; font-family: var(--mono); }
+    .big.bad { color: #fff; background: var(--mark); padding: 0 8px; }
+    .big.good { color: var(--ok); }
+    #banner {
+      margin: 0;
+      padding: 10px 24px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--mark);
+    }
+    #banner[hidden] { display: none; }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(320px, 1.5fr) minmax(300px, 1fr);
+      gap: 16px;
+      padding: 16px 24px;
+    }
+    .card { background: var(--card); border: 2px solid var(--ink); padding: 12px 14px; }
+    .card h2 { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .video { position: relative; background: #111; aspect-ratio: 4 / 3; }
+    .video img { width: 100%; height: 100%; display: block; object-fit: contain; }
+    #vidmsg {
+      position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+      color: #fff; font-size: 30px; font-weight: 800; background: rgba(184, 67, 31, 0.85); padding: 12px;
+    }
+    #vidmsg[hidden] { display: none; }
+    #vidmsg small { display: block; font-size: 15px; font-weight: 500; margin-top: 6px; }
+    dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 17px; }
+    dt { color: var(--muted); }
+    dd { margin: 0; font-family: var(--mono); text-align: right; font-weight: 600; word-break: break-word; }
+    dd.bad { color: var(--mark); }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+    button {
+      font: inherit;
+      font-weight: 700;
+      color: var(--ink);
+      background: var(--paper);
+      border: 2px solid var(--ink);
+      padding: 12px 16px;
+      cursor: pointer;
+    }
+    button:active { transform: translateY(1px); }
+    button:focus-visible { outline: 3px solid var(--mark); outline-offset: 2px; }
+    #takeoff { font-size: 20px; flex: 1; }
+    #takeoff.arm { background: #f6d98f; }
+    #hover { font-size: 20px; flex: 1; }
+    #emergency { width: 100%; border-color: var(--mark); color: var(--mark); font-size: 14px; background: var(--card); }
+    #emergency.arm { background: var(--mark); color: #fff; font-size: 18px; animation: blink 0.5s infinite alternate; }
+    @keyframes blink { to { filter: brightness(0.75); } }
+    .speed { display: grid; gap: 4px; margin-top: 12px; font-size: 17px; font-weight: 700; }
+    .speed input { width: 100%; height: 28px; }
+    .keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 4px 20px; font-size: 16px; }
+    kbd {
+      font-family: var(--mono); font-weight: 700; background: var(--paper);
+      border: 2px solid var(--ink); border-bottom-width: 4px; padding: 0 6px; margin-right: 2px;
+    }
+    pre { margin: 0; max-height: 150px; overflow: auto; font-family: var(--mono); font-size: 13px; white-space: pre-wrap; }
+    #err { color: var(--mark); font-weight: 700; }
+    .landbar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+      padding: 10px 24px; background: var(--ink);
+    }
+    #land {
+      width: 100%; height: 76px; border: 4px solid #fff; background: var(--mark); color: #fff;
+      font-size: 38px; font-weight: 900; letter-spacing: 0.04em;
+    }
+    #land small { font-size: 18px; font-weight: 600; margin-left: 12px; }
+    @media (max-width: 860px) {
+      .grid { grid-template-columns: 1fr; padding: 12px 16px; }
+      header { padding: 12px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Manual flight</h1>
+    <div id="state">...</div>
+    <div class="big" id="bat">bat -</div>
+    <div class="big" id="link">link -</div>
+    <div class="big" id="pad">no gamepad</div>
+  </header>
+  <p id="banner" hidden></p>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>Front camera</h2>
+        <div class="video">
+          <img id="cam" alt="drone camera" />
+          <div id="vidmsg">VIDEO DOWN<small>flying still works</small></div>
+        </div>
+        <div class="row"><button type="button" id="vidrestart">Restart video</button></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>Keys (hold to move, release to hover)</h2>
+        <div class="keys">
+          <div><kbd>W</kbd><kbd>S</kbd> forward / back</div>
+          <div><kbd>A</kbd><kbd>D</kbd> left / right</div>
+          <div><kbd>Q</kbd><kbd>E</kbd> turn left / right</div>
+          <div><kbd>R</kbd><kbd>F</kbd> up / down</div>
+          <div>Arrows = same as W S A D</div>
+          <div><kbd>Space</kbd> hover (sticks to zero)</div>
+          <div><kbd>T</kbd> takeoff, press twice to confirm</div>
+          <div><kbd>L</kbd> or <kbd>Esc</kbd> LAND, always instant</div>
+          <div><kbd>X</kbd> emergency, press twice: cuts motors, DROPS the drone</div>
+          <div>Gamepad: left stick move, right stick turn / up-down, Start takeoff (twice), B or Back land</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>Telemetry</h2>
+        <dl>
+          <dt>Battery</dt><dd id="t-bat">-</dd>
+          <dt>Height h / floor tof</dt><dd id="t-h">-</dd>
+          <dt>Yaw</dt><dd id="t-yaw">-</dd>
+          <dt>Telemetry age</dt><dd id="t-age">-</dd>
+          <dt>Sticks sent (rc)</dt><dd id="t-rc">0 0 0 0</dd>
+          <dt>Deadman</dt><dd id="t-dead">ok</dd>
+          <dt>Last command</dt><dd id="t-cmd">-</dd>
+          <dt>Last reply</dt><dd id="t-reply">-</dd>
+        </dl>
+        <p id="err"></p>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>Controls</h2>
+        <div class="row">
+          <button type="button" id="takeoff">TAKEOFF (T)</button>
+          <button type="button" id="hover">HOVER (Space)</button>
+        </div>
+        <label class="speed" for="speed">Speed <span id="speedv">30</span> (max 70)
+          <input id="speed" type="range" min="10" max="70" step="5" value="30" />
+        </label>
+        <div class="row">
+          <button type="button" id="emergency">EMERGENCY (X): CUTS MOTORS, DROPS THE DRONE. Click twice.</button>
+        </div>
+        <div class="row"><button type="button" id="reconnect">Reconnect to drone</button></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>Log</h2>
+        <pre id="log"></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="landbar">
+    <button type="button" id="land">LAND<small>L or Esc</small></button>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const sid = Math.random().toString(36).slice(2);
+  let seq = 0;
+
+  // ---- server calls -------------------------------------------------------------------
+  async function post(path, body, timeoutMs = 1500) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), timeoutMs);
+    try {
+      const r = await fetch(path, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body), signal: ctl.signal, cache: "no-store",
+      });
+      return await r.json();
+    } finally { clearTimeout(timer); }
+  }
+  const cmd = (action, extra = {}) => post("/cmd", { action, ...extra }).catch((e) => ({ ok: false, error: String(e) }));
+
+  // Land is never gated: no confirm, no state check. It retries because a dropped request matters.
+  let landing = false;
+  async function land() {
+    releaseAll();
+    $("land").firstChild.textContent = "LANDING...";
+    for (let i = 0; i < 4; i++) {
+      const r = await cmd("land");
+      if (r.ok) { landing = true; break; }
+      if (r.error && /no drone link/.test(r.error)) { $("err").textContent = r.error; break; }
+    }
+    setTimeout(() => { $("land").firstChild.textContent = "LAND"; }, 1500);
+  }
+
+  // ---- two-step actions ---------------------------------------------------------------
+  let takeoffUntil = 0, emergUntil = 0, emergAt = 0;
+  function takeoffPress() {
+    const now = performance.now();
+    if (now < takeoffUntil) { takeoffUntil = 0; cmd("takeoff").then(showResult); }
+    else { takeoffUntil = now + 3000; }
+    paintArm();
+  }
+  function emergencyPress() {
+    const now = performance.now();
+    if (now < emergUntil && now - emergAt > 350) {
+      emergUntil = 0;
+      cmd("emergency").then(showResult);
+    } else if (now >= emergUntil) {
+      emergAt = now; emergUntil = now + 4000;
+      cmd("emergency_arm");
+    }
+    paintArm();
+  }
+  function paintArm() {
+    const now = performance.now();
+    const t = $("takeoff"), e = $("emergency");
+    const ta = now < takeoffUntil, ea = now < emergUntil;
+    t.classList.toggle("arm", ta);
+    t.textContent = ta ? "PRESS AGAIN TO TAKE OFF (T)" : "TAKEOFF (T)";
+    e.classList.toggle("arm", ea);
+    e.textContent = ea
+      ? "CONFIRM: CUT MOTORS NOW (X). THE DRONE WILL FALL"
+      : "EMERGENCY (X): CUTS MOTORS, DROPS THE DRONE. Click twice.";
+  }
+  setInterval(paintArm, 200);
+  function showResult(r) { $("err").textContent = r && r.ok === false ? r.error || "refused" : ""; }
+
+  // ---- sticks -------------------------------------------------------------------------
+  const KEYAX = {
+    KeyD: [0, 1], KeyA: [0, -1], ArrowRight: [0, 1], ArrowLeft: [0, -1],
+    KeyW: [1, 1], KeyS: [1, -1], ArrowUp: [1, 1], ArrowDown: [1, -1],
+    KeyR: [2, 1], KeyF: [2, -1], PageUp: [2, 1], PageDown: [2, -1],
+    KeyE: [3, 1], KeyQ: [3, -1],
+  };
+  const held = new Set();
+  let zeroLeft = 0, inflight = false, padInfo = "no gamepad";
+  const padPrev = {};
+
+  function releaseAll() { held.clear(); zeroLeft = 3; pump(); }
+
+  function keyAxes() {
+    const a = [0, 0, 0, 0];
+    for (const code of held) { const m = KEYAX[code]; if (m) a[m[0]] += m[1]; }
+    return a.map((v) => Math.max(-1, Math.min(1, v)));
+  }
+  const dead = (v) => (Math.abs(v) < 0.15 ? 0 : (v - Math.sign(v) * 0.15) / 0.85);
+
+  function readPad() {
+    const out = [0, 0, 0, 0];
+    if (!document.hasFocus()) return out;
+    const pads = (navigator.getGamepads && navigator.getGamepads()) || [];
+    const pad = Array.from(pads).find((p) => p && p.connected);
+    if (!pad) { padInfo = "no gamepad"; return out; }
+    padInfo = "gamepad on";
+    const ax = pad.axes;
+    out[0] = dead(ax[0] || 0); out[1] = -dead(ax[1] || 0);
+    out[3] = dead(ax[2] || 0); out[2] = -dead(ax[3] || 0);
+    const edge = (i) => { const d = !!(pad.buttons[i] && pad.buttons[i].pressed); const e = d && !padPrev[i]; padPrev[i] = d; return e; };
+    if (edge(1) | edge(8)) land();
+    if (edge(9)) takeoffPress();
+    if (edge(0)) cmd("hover");
+    return out;
+  }
+
+  function axes() {
+    const k = keyAxes(), p = readPad();
+    return k.map((v, i) => (Math.abs(p[i]) > Math.abs(v) ? p[i] : v));
+  }
+
+  async function pump() {
+    const a = axes();
+    const active = a.some((v) => v !== 0);
+    if (active) zeroLeft = 3;
+    else if (zeroLeft <= 0) return;
+    if (inflight) return;
+    inflight = true;
+    try {
+      await post("/sticks", { lr: a[0], fb: a[1], ud: a[2], yaw: a[3], sid, seq: ++seq }, 400);
+    } catch (e) { /* the server deadman covers a lost update */ }
+    finally { inflight = false; }
+    if (!active) zeroLeft--;
+  }
+  setInterval(pump, 50);   // ~20 Hz while a key or stick is active, a short zero burst after release
+
+  // ---- keyboard -----------------------------------------------------------------------
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Meta" || e.key === "Control" || e.key === "Alt") { releaseAll(); return; }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const c = e.code;
+    if (c === "KeyL" || c === "Escape") { e.preventDefault(); if (!e.repeat) land(); return; }
+    if (c === "Space" || c === "Enter") { e.preventDefault(); if (c === "Space" && !e.repeat) { held.clear(); zeroLeft = 3; cmd("hover"); pump(); } return; }
+    if (c === "KeyT") { e.preventDefault(); if (!e.repeat) takeoffPress(); return; }
+    if (c === "KeyX") { e.preventDefault(); if (!e.repeat) emergencyPress(); return; }
+    if (KEYAX[c]) { e.preventDefault(); held.add(c); pump(); }
+  });
+  window.addEventListener("keyup", (e) => {
+    if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); return; }
+    if (held.delete(e.code)) { zeroLeft = 3; pump(); }
+  });
+  window.addEventListener("blur", releaseAll);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) releaseAll(); });
+  window.addEventListener("pagehide", releaseAll);
+
+  // ---- buttons ------------------------------------------------------------------------
+  const click = (id, fn) => $(id).addEventListener("click", (e) => { fn(); e.currentTarget.blur(); });
+  click("land", land);
+  click("takeoff", takeoffPress);
+  click("hover", () => { held.clear(); zeroLeft = 3; cmd("hover"); pump(); });
+  click("emergency", emergencyPress);
+  click("reconnect", () => cmd("reconnect"));
+  click("vidrestart", () => cmd("video_restart"));
+  $("speed").addEventListener("input", (e) => { $("speedv").textContent = e.target.value; });
+  $("speed").addEventListener("change", (e) => { cmd("speed", { value: Number(e.target.value) }); e.target.blur(); });
+
+  // ---- state --------------------------------------------------------------------------
+  let lost = 0, speedTouched = false;
+  async function poll() {
+    try {
+      const r = await fetch("/state.json", { cache: "no-store" });
+      const s = await r.json();
+      lost = 0;
+      paint(s);
+    } catch (e) {
+      lost++;
+      if (lost >= 3) {
+        banner("CONTROLLER NOT REACHABLE. The drone hovers, then lands itself in about 15 s. Press LAND anyway, or use the Tello app.");
+      }
+    }
+  }
+  setInterval(poll, 250);
+
+  function banner(text) {
+    const b = $("banner");
+    b.hidden = !text;
+    b.textContent = text || "";
+  }
+  function setDd(id, text, bad) { const n = $(id); n.textContent = text; n.classList.toggle("bad", !!bad); }
+
+  function paint(s) {
+    const st = $("state");
+    st.textContent = s.state.replace("_", " ").toUpperCase();
+    st.className = s.state;
+    const bat = $("bat");
+    bat.textContent = "bat " + (s.battery == null ? "-" : s.battery + "%");
+    bat.className = "big" + (s.battery_low ? " bad" : "");
+    const lk = $("link");
+    lk.textContent = s.link_ok ? "link OK" : (s.link === "up" ? "NO TELEMETRY" : "NO LINK");
+    lk.className = "big " + (s.link_ok ? "good" : "bad");
+    $("pad").textContent = padInfo;
+
+    const warn = [];
+    if (s.battery_low) warn.push("LOW BATTERY " + s.battery + "%" + (s.battery < s.battery_min ? ": takeoff refused" : ": land soon"));
+    if (!s.link_ok) warn.push("no fresh telemetry from the drone");
+    if (s.emergency_armed) warn.push("EMERGENCY ARMED: press X / click again to cut the motors, or ignore it");
+    banner(warn.join("   |   "));
+
+    setDd("t-bat", s.battery == null ? "-" : s.battery + "%", s.battery_low);
+    setDd("t-h", (s.h == null ? "-" : s.h) + " / " + (s.tof == null ? "-" : s.tof) + " cm");
+    setDd("t-yaw", s.yaw == null ? "-" : s.yaw + " deg");
+    setDd("t-age", s.telemetry_age == null ? "never" : s.telemetry_age.toFixed(1) + " s", !s.link_ok);
+    setDd("t-rc", s.rc.join(" "));
+    setDd("t-dead", s.deadman ? "tripped (sticks were zeroed)" : "ok", s.deadman);
+    setDd("t-cmd", s.last_command || "-");
+    setDd("t-reply", s.last_reply || "-");
+    $("err").textContent = s.errors.length ? s.errors[s.errors.length - 1] : "";
+    $("log").textContent = s.events.join("\n");
+    if (!speedTouched || document.activeElement !== $("speed")) {
+      $("speed").value = s.speed; $("speedv").textContent = s.speed; speedTouched = true;
+    }
+
+    const vm = $("vidmsg");
+    if (s.video === "ok") vm.hidden = true;
+    else {
+      vm.hidden = false;
+      const word = s.video === "starting" ? "VIDEO STARTING" : s.video === "waiting" ? "NO VIDEO FRAMES" : s.video === "off" ? "VIDEO OFF" : "VIDEO DOWN";
+      vm.firstChild.textContent = word;
+      vm.querySelector("small").textContent = "flying still works" + (s.video_error ? ": " + s.video_error : "");
+    }
+  }
+
+  // ---- video: polled JPEGs, never blocks control ---------------------------------------
+  let lastUrl = null;
+  async function frame() {
+    try {
+      const r = await fetch("/frame.jpg", { cache: "no-store" });
+      if (r.status === 200) {
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        $("cam").src = url;
+        if (lastUrl) URL.revokeObjectURL(lastUrl);
+        lastUrl = url;
+      }
+    } catch (e) { /* video only */ }
+    setTimeout(frame, 120);
+  }
+  frame();
+  poll();
+})();
+</script>
+</body>
+</html>
