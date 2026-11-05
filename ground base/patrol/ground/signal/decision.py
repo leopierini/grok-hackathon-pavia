@@ -6,6 +6,9 @@ Stage rules for this rehearsal:
   ``reposition`` and ``image_direction`` is ``left`` so the allowlisted
   left track step can continue the demo.
 - ``dog_acquire`` uses track ``target-001`` and ``switch_to_dog_vision``.
+- Prompt ``patrol-presence-v1`` is the post-dispatch check: a visible person
+  is ``approach`` on ``dog_approach`` and ``hold`` on ``drone_track``, a gone
+  person is ``stop``, and an uncertain frame is ``review``.
 
 The reason is plain language. Motor and SDK wording is replaced before
 Ground's checker sees it. ``simulated`` stays true for fixture JPEGs.
@@ -117,7 +120,7 @@ def decision_from_reading(
     prompt = _text(payload.get("prompt_version"), "prompt_version")
     active = payload.get("active_track_id")
     active_track = active if isinstance(active, str) and active else None
-    track_id, action, direction = _stage_policy(stage, active_track, reading)
+    track_id, action, direction = _stage_policy(stage, active_track, reading, prompt)
     detections: list[dict[str, object]] = []
     if reading.target_state == "person_visible":
         if reading.box is None or reading.confidence is None:
@@ -168,11 +171,17 @@ def decision_from_reading(
     }
 
 
+_PRESENCE_PROMPT = "patrol-presence-v1"
+
+
 def _stage_policy(
     stage: str,
     active_track: str | None,
     reading: Reading,
+    prompt_version: str,
 ) -> tuple[str | None, str, str]:
+    if prompt_version == _PRESENCE_PROMPT:
+        return _presence_labels(stage, active_track, reading)
     if stage not in _STAGES:
         raise SignalError("invalid_input", f"unknown vision stage: {stage}")
     if reading.target_state != "person_visible":
@@ -189,6 +198,39 @@ def _stage_policy(
             raise SignalError("rejected", "dog_approach requires an active track")
         return active_track, "approach", direction
     return active_track, "hold", direction
+
+
+def _presence_labels(
+    stage: str,
+    active_track: str | None,
+    reading: Reading,
+) -> tuple[str | None, str, str]:
+    """Scene labels for patrol-presence-v1. These are not motor commands.
+
+    Still there is approach on the dog and hold on the drone. Gone is stop.
+    Uncertain is review. The rehearsal prompts keep their own mapping.
+    """
+
+    if stage not in _STAGES:
+        raise SignalError("invalid_input", f"unknown vision stage: {stage}")
+    if reading.target_state == "uncertain":
+        return active_track, "review", "unknown"
+    if reading.target_state == "not_visible":
+        return active_track, "stop", "unknown"
+    if reading.target_state != "person_visible":
+        raise SignalError("invalid_input", "model target_state is not a vision state")
+    direction = _direction(reading.box)
+    if stage == "dog_approach":
+        if active_track is None:
+            raise SignalError("rejected", "dog_approach requires an active track")
+        return active_track, "approach", direction
+    if stage == "drone_track":
+        return active_track, "hold", direction
+    if stage == "drone_search":
+        return None, "hold", direction
+    if active_track not in {None, "target-001"}:
+        raise SignalError("rejected", "dog_acquire track_id must be target-001")
+    return "target-001", "approach", direction
 
 
 def _direction(box: tuple[float, float, float, float] | None) -> str:
