@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from patrol.ground.extensions.g11.schema_check import load_schema, validate_message
+from patrol.ground.extensions.g18.messages import parse_command as parse_drone_command
+from patrol.ground.extensions.g24.model import parse_command as parse_dog_command
 from tests.ground.g23.support import (
     approve,
     calls_of,
@@ -11,6 +14,7 @@ from tests.ground.g23.support import (
     fixture,
     move_payload,
     opened,
+    payload_of,
     run,
 )
 
@@ -58,6 +62,72 @@ def test_presence_actions_are_not_rewritten_into_a_walk(tmp_path: Path) -> None:
         services, feature = opened(tmp_path / "approach")
         command = command_of(await approve(feature, move_payload()))
         assert payload_action(command) == "move_local"
+        assert calls_of(services) == []
+
+    run(body)
+
+
+def test_bridge_presence_does_not_require_a_candidate(tmp_path: Path) -> None:
+    async def body() -> None:
+        schema = load_schema()
+        for action in ("approach", "stop", "play_warning", "follow", "return_home"):
+            proposal = fixture("proposal.json")
+            body_payload = proposal["payload"]
+            assert isinstance(body_payload, dict)
+            shaped = {
+                **body_payload,
+                "action": action,
+                "candidate_id": None,
+                "beacon_epoch": None,
+            }
+            if action == "play_warning":
+                shaped["warning_id"] = "go-away"
+                shaped["text"] = "go away"
+            if action == "follow":
+                shaped["standoff_m"] = 2.0
+            proposal["payload"] = shaped
+            services, feature = opened(tmp_path / action)
+            command = command_of(await approve(feature, move_payload(proposal=proposal)))
+            command_body = payload_of(command)
+            assert command_body["action"] == action
+            assert command_body["action"] != "move_local"
+            assert command_body["motion"] is None
+            assert command_body["beacon_epoch"] is None
+            if action == "play_warning":
+                assert command_body["warning_id"] == "go-away"
+                assert command_body["text"] == "go away"
+            if action == "follow":
+                assert command_body["standoff_m"] == 2.0
+            validate_message(command, schema)
+            parse_dog_command(command)
+            assert calls_of(services) == []
+
+    run(body)
+
+
+def test_land_on_dog_is_a_drone_command(tmp_path: Path) -> None:
+    async def body() -> None:
+        proposal = fixture("proposal.json")
+        body_payload = proposal["payload"]
+        assert isinstance(body_payload, dict)
+        proposal["payload"] = {
+            **body_payload,
+            "action": "land_on_dog",
+            "target_component": "drone",
+            "beacon_epoch": None,
+        }
+        services, feature = opened(tmp_path)
+        command = command_of(await approve(feature, move_payload(proposal=proposal)))
+        assert command["kind"] == "drone.command"
+        assert command["destination"] == "drone"
+        command_body = payload_of(command)
+        assert command_body["action"] == "land_on_dog"
+        assert command_body["primitive_id"] == "land-on-dog-v1"
+        assert command_body["beacon_epoch"] is None
+        validate_message(command, load_schema())
+        parsed, parsed_body = parse_drone_command(command)
+        assert parsed.kind == "drone.command"
+        assert parsed_body.action == "land_on_dog"
         assert calls_of(services) == []
 
     run(body)

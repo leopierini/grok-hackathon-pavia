@@ -133,7 +133,7 @@ These are not completed by offline Ground task code:
 
 - Teammate v2 dog/drone/Pi/vision factories, persistent authenticated transport,
   image transfer, clock-offset/error negotiation and device command-status queries.
-  The proposed `/ws/robot/v2` route is a contract proposal, not a deployed endpoint.
+  `/ws/robot/v2` is served by the local operator on 127.0.0.1:8765 with the operator token.
 - Physical Go2 control/stop, Tello controlled translation and camera modes,
   Pi RSSI data path, simultaneous networking, tether reach and independent
   on-device lease/link-loss behavior. No current fixture proves those measurements.

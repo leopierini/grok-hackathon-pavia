@@ -1,0 +1,7 @@
+{
+  "route": "/ws/robot/v2",
+  "host": "127.0.0.1",
+  "port": 8765,
+  "auth_header": "x-ground-operator-token",
+  "auth_env": "GROUND_OPERATOR_TOKEN"
+}

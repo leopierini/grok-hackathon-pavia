@@ -28,7 +28,8 @@ def resolve_jpeg(artifact_id: str, roots: tuple[Path, ...]) -> Path:
             continue
         if candidate.stat().st_size > MAX_BYTES:
             raise ArtifactError("rejected", "evidence file exceeds the size limit")
-        header = candidate.read_bytes()[:3]
+        with candidate.open("rb") as handle:
+            header = handle.read(3)
         if header != _JPEG:
             raise ArtifactError("rejected", "evidence is not a JPEG")
         return candidate

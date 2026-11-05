@@ -10,6 +10,7 @@ from typing import Any, cast
 import pytest
 from patrol.contract import DogStatus
 from patrol.ground.extensions.g08.implementation import create
+from patrol.ground.extensions.g08.resolve import resolve_factories
 from patrol.ground.extensions.g08.snapshots import EVIDENCE_GAPS
 from patrol.ground.kernel.faults import GroundFault
 from patrol.ground.kernel.settings import make_settings
@@ -27,6 +28,20 @@ def test_import_does_not_load_vendor_or_public_adapters() -> None:
         "xai_sdk",
     )
     assert all(name not in sys.modules for name in banned)
+
+
+def test_public_factories_resolve_from_sibling_trees() -> None:
+    factories = resolve_factories({"source": "public"})
+    assert tuple(factories) == ("dog", "drone", "reasoner")
+    assert factories["dog"].__name__ == "create_dog"
+    assert factories["drone"].__name__ == "create_drone"
+    assert factories["reasoner"].__name__ == "create_reasoner"
+    dog = factories["dog"](mode="fake", config={}, output_dir=".")
+    drone = factories["drone"](mode="fake", config={}, output_dir=".")
+    reasoner = factories["reasoner"](mode="fake", config={}, output_dir=".")
+    assert dog.__class__.__name__ == "FakeDog"
+    assert drone.__class__.__name__ == "FakeDrone"
+    assert reasoner.__class__.__name__ == "FakeReasoner"
 
 
 def test_private_stub_receives_exact_keywords(tmp_path: Path) -> None:
@@ -61,14 +76,11 @@ def test_public_resolver_does_not_call_private_stubs(tmp_path: Path) -> None:
             called = True
             return object()
 
-        with pytest.raises(GroundFault) as caught:
-            await created.build(  # type: ignore[union-attr]
-                make_settings(),
-                tmp_path,
-                resolver={"source": "public", "dog": stub, "drone": stub, "reasoner": stub},
-            )
-        assert caught.value.error.code == "unavailable"
-        assert "no private fallback" in caught.value.error.detail
+        await created.build(  # type: ignore[union-attr]
+            make_settings(),
+            tmp_path,
+            resolver={"source": "public", "dog": stub, "drone": stub, "reasoner": stub},
+        )
         assert called is False
 
     run(body)

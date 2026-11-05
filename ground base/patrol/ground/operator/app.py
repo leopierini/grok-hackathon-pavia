@@ -9,7 +9,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any, cast
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
 from patrol.ground.kernel.paths import repo_root
@@ -44,6 +44,43 @@ def create_app(token: str, runs_root: Path) -> FastAPI:
     @app.get("/api/v1/health")
     async def health() -> dict[str, str]:
         return {"ok": "true", "service": "ground-mission-control"}
+
+    @app.websocket("/ws/robot/v2")
+    async def robot_v2(socket: WebSocket) -> None:
+        supplied = socket.headers.get("x-ground-operator-token", "")
+        if not hmac.compare_digest(supplied, token):
+            await socket.close(code=1008)
+            return
+        await socket.accept()
+        received = getattr(app.state, "robot_v2_messages", None)
+        if not isinstance(received, list):
+            received = []
+            app.state.robot_v2_messages = received
+        try:
+            while True:
+                raw = await socket.receive_text()
+                if len(raw) > 65536:
+                    await socket.send_json({"ok": False, "error": "message is too large"})
+                    continue
+                try:
+                    message = json.loads(raw)
+                except json.JSONDecodeError:
+                    await socket.send_json({"ok": False, "error": "message must be JSON"})
+                    continue
+                if not isinstance(message, dict):
+                    await socket.send_json({"ok": False, "error": "message must be an object"})
+                    continue
+                received.append(message)
+                await socket.send_json(
+                    {
+                        "ok": True,
+                        "accepted": True,
+                        "route": "/ws/robot/v2",
+                        "kind": message.get("kind"),
+                    }
+                )
+        except WebSocketDisconnect:
+            return
 
     @app.get("/api/v1/session")
     async def session(request: Request) -> dict[str, Any]:

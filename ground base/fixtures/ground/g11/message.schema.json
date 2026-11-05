@@ -1303,7 +1303,8 @@
             "play_warning",
             "follow",
             "stop",
-            "return_home"
+            "return_home",
+            "approach"
           ]
         },
         "lease_ms": {

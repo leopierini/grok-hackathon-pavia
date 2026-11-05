@@ -388,6 +388,16 @@ class RealDog:
         os.replace(tmp, final)
         return Frame(path=str(final), source="dog", zone=zone, captured_at=utc, simulated=False)
 
+    async def play_warning(self, warning_id: str, text: str) -> None:
+        from patrol.dog.commands import play_warning
+
+        await play_warning(self, warning_id, text)
+
+    async def execute(self, command: Mapping[str, Any]) -> str:
+        from patrol.dog.commands import execute
+
+        return await execute(self, command)
+
     async def halt(self) -> None:
         """Latch halt, stop accepting motion, send StopMove now (doesn't wait for the route)."""
         self._halted.set()

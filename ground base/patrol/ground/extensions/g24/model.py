@@ -75,9 +75,21 @@ _ACK_PAYLOAD = frozenset(
 _SOURCES = frozenset({"ground", "drone", "dog", "pi", "vision", "operator"})
 _DESTINATIONS = frozenset({"ground", "drone", "dog", "pi", "vision", "all"})
 _ACTIONS = frozenset(
-    {"stand", "move_local", "turn", "halt", "play_warning", "follow", "stop", "return_home"}
+    {
+        "stand",
+        "move_local",
+        "turn",
+        "halt",
+        "play_warning",
+        "follow",
+        "stop",
+        "return_home",
+        "approach",
+    }
 )
-_STILL_ACTIONS = frozenset({"halt", "play_warning", "follow", "stop", "return_home"})
+_STILL_ACTIONS = frozenset(
+    {"halt", "play_warning", "follow", "stop", "return_home", "approach"}
+)
 _COMMAND_OPTIONAL = frozenset({"warning_id", "text", "standoff_m"})
 _ACK_STATES = frozenset(
     {"accepted", "running", "completed", "rejected", "cancelled", "failed", "unknown"}

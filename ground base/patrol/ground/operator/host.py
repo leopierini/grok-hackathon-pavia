@@ -90,6 +90,7 @@ class Host:
         self.providers, self.missing = _inventory()
         self.snapshot: Json = {}
         self._lock = asyncio.Lock()
+        self._probe_task: asyncio.Task[dict[str, Any]] | None = None
         self._scan_runs()
         self._refresh()
 
@@ -112,36 +113,47 @@ class Host:
                 "stop_patrol",
             }:
                 return _error(404, "unknown_action", "unknown operator action")
+            probe_first = _wants_ethernet_probe(name, body)
+            epoch = self.session_epoch
+        route: dict[str, Any] | None = None
+        if probe_first:
+            route = await self._coalesced_probe()
+        async with self._lock:
+            if key and key in self.idempotency:
+                return self.idempotency[key]
+            if probe_first and (
+                self.closed or self.halt_latched or self.session_epoch != epoch
+            ):
+                return _error(
+                    409,
+                    "rejected",
+                    "probe result was dropped because the session changed",
+                )
             if name == "probe":
-                result = self._probe()
-                if key:
-                    self.idempotency[key] = result
+                result = self._probe(route)
+                self._remember(key, result)
                 return result
             if name not in {"halt", "status", "quit"}:
                 sent = body.get("session_epoch")
                 if isinstance(sent, bool) or not isinstance(sent, int) or sent != self.session_epoch:
                     return _error(409, "stale_epoch", "session epoch is stale; read the session again")
             if name == "dog_test":
-                result = self._begin_dog_test(body)
-                if key:
-                    self.idempotency[key] = result
+                result = self._begin_dog_test(body, route)
+                self._remember(key, result)
                 return result
             if name == "dog_view":
-                result = self._begin_dog_view(body)
-                if key:
-                    self.idempotency[key] = result
+                result = self._begin_dog_view(body, route)
+                self._remember(key, result)
                 return result
             if name in {"start_patrol", "stop_patrol"}:
                 result = self._patrol(name)
-                if key:
-                    self.idempotency[key] = result
+                self._remember(key, result)
                 return result
             decision = action_map(self._gate())[name]
             if name != "status" and decision["enabled"] is not True:
                 return _error(409, "rejected", str(decision["reason"]))
-            result = await self._apply(name, body)
-            if key:
-                self.idempotency[key] = result
+            result = await self._apply(name, body, route)
+            self._remember(key, result)
             return result
 
     async def update_config(self, raw: object) -> Json:
@@ -235,7 +247,40 @@ class Host:
         if queue in self.subscribers:
             self.subscribers.remove(queue)
 
-    async def _apply(self, name: str, body: Mapping[str, Any]) -> Json:
+    def _remember(self, key: str | None, result: Json) -> None:
+        if not key:
+            return
+        self.idempotency[key] = result
+        while len(self.idempotency) > 64:
+            self.idempotency.pop(next(iter(self.idempotency)))
+
+    async def _release_link(self, link: EthernetDogLink) -> None:
+        try:
+            await link.halt()
+        except Exception:
+            pass
+        try:
+            await link.close()
+        except Exception:
+            pass
+        if self.dog_link is link:
+            self.dog_link = None
+            self.dog_view = False
+            self.dog_view_ready = False
+            self.dog_view_owns = False
+
+    async def _coalesced_probe(self) -> dict[str, Any]:
+        task = self._probe_task
+        if task is None or task.done():
+            task = asyncio.create_task(asyncio.to_thread(probe_dog_ethernet))
+            self._probe_task = task
+        try:
+            return await task
+        finally:
+            if self._probe_task is task and task.done():
+                self._probe_task = None
+
+    async def _apply(self, name: str, body: Mapping[str, Any], route: dict[str, Any] | None = None) -> Json:
         if name == "status":
             self._refresh()
             return _ok(200, "Status is a read of the current session.", self.snapshot)
@@ -248,17 +293,21 @@ class Host:
             self._refresh()
             return _ok(200, "Supervised search is selected. It does not enable motion.", self.snapshot)
         if name == "start":
-            return self._start(body)
+            return self._start(body, route)
         if name == "halt":
             return self._halt()
         if name == "reset":
             return self._reset(body)
         self._halt()
+        self.dog_view_stop = True
+        link = self.dog_link
+        if link is not None:
+            asyncio.create_task(self._release_link(link))
         self.closed = True
         self._refresh()
         return _ok(200, "Quit latched halt and closed the operator session.", self.snapshot)
 
-    def _start(self, body: Mapping[str, Any]) -> Json:
+    def _start(self, body: Mapping[str, Any], route: dict[str, Any] | None = None) -> Json:
         scenario = body.get("scenario") or "happy_path"
         if scenario not in OPERATOR_SCENARIOS:
             return _error(422, "invalid_input", "unknown scenario")
@@ -276,7 +325,8 @@ class Host:
         if dog not in {"fake", "ethernet", "sim"}:
             return _error(422, "invalid_input", "dog must be fake, ethernet, or sim")
         if dog == "ethernet":
-            route = probe_dog_ethernet()
+            if route is None:
+                route = probe_dog_ethernet()
             self.dog_motion = {"probe": route, "sent": False}
             if route.get("reachable") is not True:
                 return self._fail(
@@ -348,6 +398,7 @@ class Host:
         if not clean and (not isinstance(token, str) or len(token.strip()) < 8):
             return _error(409, "recovery_required", "reset requires a recovery token while a fault is unresolved")
         self.session_epoch += 1
+        self.idempotency.clear()
         self.armed = False
         self.supervised = False
         self.halt_latched = False
@@ -588,7 +639,7 @@ class Host:
             config_ok=True,
         )
 
-    def _begin_dog_test(self, body: Mapping[str, Any]) -> Json:
+    def _begin_dog_test(self, body: Mapping[str, Any], route: dict[str, Any] | None = None) -> Json:
         if self.closed:
             return _error(409, "rejected", "The operator session is closed.")
         if self.mode == "replay":
@@ -610,7 +661,8 @@ class Host:
             return _error(422, "invalid_input", "dog test must use ethernet or sim")
         self.dog_limits = clamp_limits(body.get("limits"))
         if dog == "ethernet":
-            route = probe_dog_ethernet()
+            if route is None:
+                route = probe_dog_ethernet()
             self.dog_motion = {"probe": route, "sent": False, "steps": []}
             if route.get("reachable") is not True or route.get("laptop_on_dog_subnet") is not True:
                 return self._fail(
@@ -694,7 +746,7 @@ class Host:
             self._refresh()
             self._broadcast("dog_test", "Direction test finished.")
 
-    def _begin_dog_view(self, body: Mapping[str, Any]) -> Json:
+    def _begin_dog_view(self, body: Mapping[str, Any], route: dict[str, Any] | None = None) -> Json:
         if self.closed or self.mode == "replay":
             return _error(409, "rejected", "This session cannot open the dog camera.")
         if body.get("open") is False:
@@ -721,7 +773,8 @@ class Host:
         if dog not in {"ethernet", "sim"}:
             return _error(422, "invalid_input", "dog view must use ethernet or sim")
         if dog == "ethernet":
-            route = probe_dog_ethernet()
+            if route is None:
+                route = probe_dog_ethernet()
             if route.get("reachable") is not True or route.get("laptop_on_dog_subnet") is not True:
                 return self._fail(
                     409,
@@ -789,8 +842,9 @@ class Host:
             return {"ok": False, "detail": str(parsed.get("detail") or "LiDAR did not answer")}
         return {"ok": True, "view": parsed.get("view"), "status": parsed.get("status")}
 
-    def _probe(self) -> Json:
-        route = probe_dog_ethernet()
+    def _probe(self, route: dict[str, Any] | None = None) -> Json:
+        if route is None:
+            route = probe_dog_ethernet()
         self.dog_motion = {"probe": route, "sent": False}
         if route.get("reachable") is True and route.get("laptop_on_dog_subnet") is True:
             self._refresh()
@@ -935,6 +989,18 @@ def _writer(records: list[Json]) -> str:
     if "flushed" in states:
         return "flushed"
     return "queued"
+
+
+def _wants_ethernet_probe(name: str, body: Mapping[str, Any]) -> bool:
+    if name == "probe":
+        return True
+    if name == "dog_view" and body.get("open") is False:
+        return False
+    if name == "start":
+        return (body.get("dog") or "fake") == "ethernet"
+    if name in {"dog_test", "dog_view"}:
+        return (body.get("dog") or "ethernet") == "ethernet"
+    return False
 
 
 def _summary(report: Mapping[str, Any]) -> Json:

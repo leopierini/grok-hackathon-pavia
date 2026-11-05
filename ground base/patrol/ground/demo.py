@@ -89,6 +89,7 @@ class Demo:
         self.seed = seed
         self.grok = grok
         self.live_calls = 0
+        self._vision_busy = False
         self.providers: dict[int, FeaturePort] = {}
         self.trace: list[Json] = []
         self.messages: list[Json] = []
@@ -377,7 +378,7 @@ class Demo:
             raise _Stopped(self.reason)
         request = await self.message(request)
         self.advance(random.Random(self.seed).uniform(0.01, 0.02))
-        decision = self._drone_vision_decision(request, frame)
+        decision = await self._drone_vision_decision(request, frame)
         decision = await self.message(decision, restamp=True)
         accepted = await self.call(
             16,
@@ -727,7 +728,7 @@ class Demo:
                 },
             )
             request = await self.message(cast(Mapping[str, object], scheduled.data["message"]))
-            decision = self._dog_vision_decision(request, index)
+            decision = await self._dog_vision_decision(request, index)
             decision = await self.message(decision, restamp=True)
             await self.call(
                 16,
@@ -766,13 +767,13 @@ class Demo:
         named["model_id"] = DEFAULT_IMAGE_MODEL
         return named
 
-    def _drone_vision_decision(
+    async def _drone_vision_decision(
         self,
         request: Mapping[str, object],
         frame: Mapping[str, object],
     ) -> Json:
         if self.grok == "real":
-            return self._real_decision(request)
+            return await self._real_decision_async(request)
         decision = _load("contracts/examples/drone-vision-decision.json")
         decision["correlation_id"] = request["message_id"]
         payload = decision["payload"]
@@ -794,9 +795,9 @@ class Demo:
         )
         return decision
 
-    def _dog_vision_decision(self, request: Mapping[str, object], index: int) -> Json:
+    async def _dog_vision_decision(self, request: Mapping[str, object], index: int) -> Json:
         if self.grok == "real":
-            decision = self._real_decision(request)
+            decision = await self._real_decision_async(request)
         else:
             decision = _load("contracts/examples/dog-vision-decision.json")
             decision["correlation_id"] = request["message_id"]
@@ -819,6 +820,27 @@ class Demo:
                 }
             )
         decision["message_id"] = f"msg-dog-decision-{index + 1}"
+        return decision
+
+    def _release_vision(self) -> None:
+        self._vision_busy = False
+
+    async def _real_decision_async(self, request: Mapping[str, object]) -> Json:
+        if self._vision_busy:
+            raise fault("rejected", "a vision request is already in flight")
+        self._vision_busy = True
+        loop = asyncio.get_running_loop()
+        payload = dict(request)
+
+        def work() -> Json:
+            try:
+                return self._real_decision(payload)
+            finally:
+                loop.call_soon_threadsafe(self._release_vision)
+
+        decision = await asyncio.to_thread(work)
+        if self.should_halt is not None and self.should_halt():
+            raise _Stopped("vision result arrived after halt")
         return decision
 
     def _real_decision(self, request: Mapping[str, object]) -> Json:

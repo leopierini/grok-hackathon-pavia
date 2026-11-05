@@ -187,6 +187,16 @@ class FakeDog:
         self.trace.append("halt")
         self._halted = True
 
+    async def play_warning(self, warning_id: str, text: str) -> None:
+        from patrol.dog.commands import play_warning
+
+        await play_warning(self, warning_id, text)
+
+    async def execute(self, command: Mapping[str, Any]) -> str:
+        from patrol.dog.commands import execute
+
+        return await execute(self, command)
+
     async def close(self) -> None:
         self.trace.append("close")
         self._halted = True

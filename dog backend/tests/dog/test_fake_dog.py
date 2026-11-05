@@ -271,6 +271,36 @@ def test_configured_extra_route(tmp_path):
     assert asyncio.run(run()).completed
 
 
+def test_execute_plays_a_warning_and_keeps_presence_actions(tmp_path):
+    dog, c = make(tmp_path), ctx()
+
+    async def run():
+        await ready(dog, c)
+        await dog.play_warning("go-away", "go away")
+        kind = await dog.execute(
+            {
+                "kind": "dog.command",
+                "payload": {
+                    "action": "play_warning",
+                    "warning_id": "go-away",
+                    "text": "go away",
+                },
+            }
+        )
+        followed = await dog.execute({"payload": {"action": "follow", "standoff_m": 2.0}})
+        stopped = await dog.execute({"payload": {"action": "stop"}})
+        home = await dog.execute({"payload": {"action": "return_home"}})
+        return kind, followed, stopped, home
+
+    assert hasattr(dog, "execute") and hasattr(dog, "play_warning")
+    kind, followed, stopped, home = asyncio.run(run())
+    assert (kind, followed, stopped, home) == ("play_warning", "follow", "stop", "return_home")
+    assert dog.spoken == ["go away", "go away"]
+    assert "play_warning:go-away" in dog.trace
+    assert "follow" in dog.trace
+    assert "return_home" in dog.trace
+
+
 def test_fake_dog_audio_extras(tmp_path):
     import asyncio
     import wave
