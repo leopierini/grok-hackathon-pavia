@@ -67,7 +67,9 @@ if [ "$mode" = usb ]; then
 else
   status "connessione rpi ok, connessione dog ok"
 fi
-ssh_pi 'cat /run/go2-rssi 2>/dev/null || true' > "$here/rssi.dbm" || true
+if ! pgrep -f 'rssi-poll.sh' >/dev/null; then
+  nohup bash "$here/rssi-poll.sh" >/tmp/go2-rssi-poll.log 2>&1 &
+fi
 
 if [ "$mode" = usb ]; then
   in_vm "sudo bash $repo/robot/go2/guest-addr.sh"

@@ -23,7 +23,7 @@ while true; do
   fi
   # wlan1 is the 2.4 GHz stick. wlan0 is joined to the facility, so it cannot scan.
   ip link set wlan1 up 2>/dev/null || true
-  best=$(iw dev wlan1 scan 2>/dev/null | awk '
+  best=$(timeout 8 iw dev wlan1 scan 2>/dev/null | awk '
     /signal:/ {sig=$2}
     $1=="SSID:" && toupper($0) ~ /62A593/ {print sig}
   ' | sort -n | tail -1)
