@@ -1,0 +1,11 @@
+{
+  "model": "grok-4.20-non-reasoning",
+  "prompt_version": "patrol-v1",
+  "presence_prompt_version": "patrol-presence-v1",
+  "request_timeout_s": 5.0,
+  "scenario": "blocked_resolved",
+  "image_detail": "high",
+  "max_tokens": 256,
+  "resize_long_side": 640,
+  "jpeg_quality": 80
+}
