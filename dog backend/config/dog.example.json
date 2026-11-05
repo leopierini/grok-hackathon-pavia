@@ -1,0 +1,8 @@
+{
+  "connection_mode": "LocalSTA",
+  "interface": "192.168.123.161",
+  "routes_path": "dog_routes.example.json",
+  "max_route_s": 30.0,
+  "command_timeout_s": 3.0,
+  "scenario": "blocked_resolved"
+}

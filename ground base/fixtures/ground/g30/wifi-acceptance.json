@@ -1,0 +1,7 @@
+{
+  "profile_name": "wifi-lan",
+  "dog_transport": "wifi",
+  "accepted": true,
+  "evidence": "simulated",
+  "note": "Synthetic Wi-Fi acceptance. This file does not join a network."
+}

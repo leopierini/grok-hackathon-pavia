@@ -1,0 +1,9 @@
+{
+  "standing": true,
+  "stationary": true,
+  "avoidance_enabled": true,
+  "transport": "ethernet",
+  "tether_budget_m": 2.0,
+  "step_distance_m": 0.05,
+  "vision_active": false
+}

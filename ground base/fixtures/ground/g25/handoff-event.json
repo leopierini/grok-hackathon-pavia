@@ -1,0 +1,40 @@
+{
+  "protocol_version": "2.0-draft",
+  "message_id": "msg-dog-vision-handoff",
+  "mission_id": "demo-20261104-001",
+  "epoch": 1,
+  "seq": 3,
+  "sent_at": "2026-11-04T13:00:11.500Z",
+  "source": "ground",
+  "destination": "all",
+  "kind": "mission.event",
+  "correlation_id": "msg-dog-vision-decision-2",
+  "expires_at": null,
+  "simulated": true,
+  "payload": {
+    "event": "dog_vision_handoff",
+    "phase": "dog_acquire",
+    "outcome": null,
+    "device_recovery_required": false,
+    "reason": "The same track was visible on enough fresh dog frames. RSSI remains supporting evidence.",
+    "details": {
+      "message_id": "msg-dog-vision-handoff",
+      "mission_id": "demo-20261104-001",
+      "epoch": 1,
+      "request_id": "vision-dog-002",
+      "frame_id": "dog-front-002",
+      "frame_ids": [
+        "dog-front-001",
+        "dog-front-002"
+      ],
+      "track_id": "target-001",
+      "beacon_epoch": 3,
+      "map_epoch": 1,
+      "camera_epoch": 1,
+      "rssi_role": "supporting",
+      "mode": "visual",
+      "command": null,
+      "goal_reached": false
+    }
+  }
+}

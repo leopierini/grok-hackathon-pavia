@@ -1,0 +1,5 @@
+{
+  "model": "configured-model",
+  "prompt_version": "prompt-v1",
+  "request_timeout_s": 20
+}

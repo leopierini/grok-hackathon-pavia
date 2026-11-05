@@ -1,0 +1,6 @@
+{
+  "armed_receiver_id": "pi-01",
+  "clock_error_limit_ms": 50,
+  "heartbeat_max_age_ms": 2000,
+  "received_at": "2026-11-04T13:00:10.500Z"
+}

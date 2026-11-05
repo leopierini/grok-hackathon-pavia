@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v2",
+  "task_id": "GROUND-32",
+  "slot": "feature.v2_rehearsal",
+  "factory": "patrol.ground.extensions.g32.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g32.scenarios:cases"
+}

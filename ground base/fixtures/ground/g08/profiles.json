@@ -1,0 +1,10 @@
+{
+  "ethernet": {
+    "transport": "ethernet",
+    "profile": "dog.ethernet"
+  },
+  "wifi": {
+    "transport": "wifi",
+    "profile": "dog.wifi"
+  }
+}

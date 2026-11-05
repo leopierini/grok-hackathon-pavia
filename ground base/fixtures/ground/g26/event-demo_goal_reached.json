@@ -1,0 +1,25 @@
+{
+  "protocol_version": "2.0-draft",
+  "message_id": "msg-event-demo_goal_reached",
+  "mission_id": "demo-20261104-001",
+  "epoch": 1,
+  "seq": 11,
+  "sent_at": "2026-11-04T13:00:12.000Z",
+  "source": "ground",
+  "destination": "all",
+  "kind": "mission.event",
+  "correlation_id": null,
+  "expires_at": null,
+  "simulated": true,
+  "payload": {
+    "event": "demo_goal_reached",
+    "phase": "proximity_verify",
+    "outcome": "completed",
+    "device_recovery_required": false,
+    "reason": "Both separately defined proximity checks passed; aircraft recovery remains separate.",
+    "details": {
+      "logs_requirements_status": "proposed_pending_team",
+      "track_id": "target-001"
+    }
+  }
+}

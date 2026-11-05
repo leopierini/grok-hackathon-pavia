@@ -1,0 +1,15 @@
+{
+  "selection_id": "sel-forward-01",
+  "proposal_id": "proposal-dog-001",
+  "guidance": "rssi",
+  "action": "move_local",
+  "candidate_id": "candidate-forward-01",
+  "track_id": "target-001",
+  "beacon_epoch": 3,
+  "safety_snapshot_id": "safety-001",
+  "lease_ms": 300,
+  "duration_ms": 300,
+  "linear_x_m_s": 0.1,
+  "linear_y_m_s": 0.0,
+  "angular_z_rad_s": 0.0
+}

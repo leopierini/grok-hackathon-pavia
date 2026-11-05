@@ -1,0 +1,577 @@
+{
+  "drone_approval": {
+    "proposal": {
+      "protocol_version": "2.0-draft",
+      "message_id": "msg-ai-to-drone-proposal",
+      "mission_id": "demo-20261104-001",
+      "epoch": 1,
+      "seq": 3,
+      "sent_at": "2026-11-04T13:00:10.200Z",
+      "source": "vision",
+      "destination": "ground",
+      "kind": "motion.proposal",
+      "correlation_id": "msg-drone-vision-decision",
+      "expires_at": "2026-11-04T13:00:10.700Z",
+      "simulated": true,
+      "payload": {
+        "proposal_id": "proposal-drone-001",
+        "target_component": "drone",
+        "action": "reposition",
+        "direction_hint": "left",
+        "track_id": "target-001",
+        "evidence_frame_id": "drone-downward-001",
+        "candidate_id": null,
+        "beacon_epoch": 3,
+        "reason": "Semantic image-space proposal; requires calibrated approved primitive."
+      }
+    },
+    "operator_request": null,
+    "capabilities": {
+      "protocol_version": "2.0-draft",
+      "message_id": "msg-drone-capabilities",
+      "mission_id": "demo-20261104-001",
+      "epoch": 1,
+      "seq": 1,
+      "sent_at": "2026-11-04T13:00:00.000Z",
+      "source": "drone",
+      "destination": "ground",
+      "kind": "capabilities.report",
+      "correlation_id": null,
+      "expires_at": null,
+      "simulated": true,
+      "payload": {
+        "device_id": "drone-01",
+        "role": "drone",
+        "model": "Tello EDU",
+        "software_version": "synthetic-test-v1",
+        "supported_commands": [
+          "takeoff",
+          "search_step",
+          "track_step",
+          "hover",
+          "land"
+        ],
+        "camera_ids": [
+          "front",
+          "downward"
+        ],
+        "pose_frames": [],
+        "features": {
+          "controlled_motion": true,
+          "downward_video": true,
+          "rssi_receiver": false,
+          "lidar": false,
+          "slam": false,
+          "target_range": false
+        },
+        "validated": true,
+        "acceptance_evidence_ref": "artifact://synthetic-only/capability-test"
+      }
+    },
+    "observation": {
+      "protocol_version": "2.0-draft",
+      "message_id": "msg-drone-observation",
+      "mission_id": "demo-20261104-001",
+      "epoch": 1,
+      "seq": 2,
+      "sent_at": "2026-11-04T13:00:10.000Z",
+      "source": "drone",
+      "destination": "ground",
+      "kind": "drone.observation",
+      "correlation_id": null,
+      "expires_at": null,
+      "simulated": true,
+      "payload": {
+        "device_id": "drone-01",
+        "flight_state": "airborne",
+        "battery_percent": 74,
+        "pose": null,
+        "height_estimate_m": 4.0,
+        "height_reference": "floor_agl",
+        "control_mode": "autonomous_verified",
+        "beacon": {
+          "beacon_id": "tello-demo-01",
+          "bssid": "02:00:00:00:00:01",
+          "ssid": "TELLO-DEMO",
+          "beacon_epoch": 3,
+          "hold_state": "stable",
+          "verified_at": "2026-11-04T13:00:10.000Z",
+          "hold_valid_until": "2026-11-04T13:00:12.000Z"
+        },
+        "frame": {
+          "frame_id": "drone-downward-001",
+          "image_ref": "artifact://demo-20261104-001/drone/downward-001.jpg",
+          "sha256": "0f0479fff4658167e274ded2e2bdc58a9cc45ebdd667c955fb2a2f636906470f",
+          "captured_at": "2026-11-04T13:00:10.000Z",
+          "camera_id": "downward",
+          "camera_epoch": 1,
+          "width_px": 320,
+          "height_px": 240,
+          "camera_frame_id": "drone/camera_downward",
+          "camera_to_body_calibration_id": "synthetic-calibration-v1",
+          "simulated": true
+        },
+        "active_command_id": null
+      }
+    },
+    "allowlist": {
+      "takeoff_deadline_ms": 8000,
+      "land_deadline_ms": 8000,
+      "command_ids": {
+        "proposal-drone-001": "cmd-drone-001",
+        "operator-hover-001": "cmd-drone-hover-001",
+        "operator-land-001": "cmd-drone-land-001",
+        "operator-takeoff-001": "cmd-drone-takeoff-001",
+        "operator-supervised-001": "cmd-drone-supervised-001"
+      },
+      "message_ids": {
+        "proposal-drone-001": "msg-ground-to-drone-command",
+        "operator-hover-001": "msg-ground-to-drone-hover",
+        "operator-land-001": "msg-ground-to-drone-land"
+      },
+      "seq": {
+        "proposal-drone-001": 5,
+        "operator-hover-001": 6,
+        "operator-land-001": 7
+      },
+      "search": {
+        "step_cap": 2,
+        "primitive_ids": [
+          "verified-search-left-v1",
+          "verified-search-right-v1"
+        ]
+      },
+      "height_profile": {
+        "profile_id": "proposed_4m_floor_agl",
+        "allowed": [
+          {
+            "height_m": 4.0,
+            "height_reference": "floor_agl"
+          }
+        ]
+      },
+      "primitives": [
+        {
+          "primitive_id": "verified-left-step-v1",
+          "action": "track_step",
+          "direction_hint": "left",
+          "lease_ms": 300,
+          "camera_id": "downward",
+          "supervised": false,
+          "reason": "Synthetic approved primitive; invalidates epoch-3 RSSI comparisons."
+        },
+        {
+          "primitive_id": "verified-search-left-v1",
+          "action": "search_step",
+          "direction_hint": "left",
+          "lease_ms": 400,
+          "camera_id": "downward",
+          "supervised": false,
+          "reason": "Seeded search step from the allowlist."
+        },
+        {
+          "primitive_id": "verified-search-right-v1",
+          "action": "search_step",
+          "direction_hint": "right",
+          "lease_ms": 400,
+          "camera_id": "downward",
+          "supervised": false,
+          "reason": "Seeded search step from the allowlist."
+        },
+        {
+          "primitive_id": "operator-supervised-step-v1",
+          "action": "search_step",
+          "lease_ms": 500,
+          "camera_id": "downward",
+          "supervised": true,
+          "reason": "operator-supervised search step"
+        },
+        {
+          "primitive_id": "verified-hold-v1",
+          "action": "hover",
+          "lease_ms": 500,
+          "camera_id": "downward",
+          "supervised": false,
+          "reason": "Synthetic hold/landing request, subject to recipient local safety."
+        },
+        {
+          "primitive_id": "verified-floor-land-v1",
+          "action": "land",
+          "lease_ms": 500,
+          "camera_id": "downward",
+          "supervised": false,
+          "reason": "Synthetic hold/landing request, subject to recipient local safety."
+        },
+        {
+          "primitive_id": "verified-takeoff-v1",
+          "action": "takeoff",
+          "lease_ms": 500,
+          "camera_id": "downward",
+          "supervised": false,
+          "reason": "Allowlisted takeoff. The motor deadline is the takeoff deadline, not the 500 ms lease."
+        }
+      ]
+    },
+    "calibration": true,
+    "beacon_epoch": 4,
+    "evaluated_at": "2026-11-04T13:00:10.210Z",
+    "armed": true,
+    "search_steps_taken": 0,
+    "seed": 0
+  },
+  "rssi": {
+    "window": {
+      "protocol_version": "2.0-draft",
+      "message_id": "msg-pi-rssi-window",
+      "mission_id": "demo-20261104-001",
+      "epoch": 1,
+      "seq": 2,
+      "sent_at": "2026-11-04T13:00:10.000Z",
+      "source": "pi",
+      "destination": "ground",
+      "kind": "rssi.window",
+      "correlation_id": null,
+      "expires_at": null,
+      "simulated": true,
+      "payload": {
+        "receiver_id": "pi-01",
+        "receiver_mount": "dog",
+        "interface": "wlan-measurement",
+        "beacon_id": "tello-demo-01",
+        "bssid": "02:00:00:00:00:01",
+        "beacon_epoch": 3,
+        "window_start": "2026-11-04T13:00:09.600Z",
+        "window_end": "2026-11-04T13:00:09.800Z",
+        "clock_error_ms": 15,
+        "samples": [
+          {
+            "sample_id": "rssi-0",
+            "captured_at": "2026-11-04T13:00:09.600Z",
+            "rssi_dbm": -62,
+            "pose": {
+              "frame_id": "museum/map",
+              "map_id": "museum-map-demo",
+              "map_epoch": 1,
+              "x_m": 0.0,
+              "y_m": 0,
+              "z_m": 0,
+              "yaw_rad": 0.0,
+              "observed_at": "2026-11-04T13:00:09.600Z",
+              "valid": true
+            }
+          },
+          {
+            "sample_id": "rssi-1",
+            "captured_at": "2026-11-04T13:00:09.700Z",
+            "rssi_dbm": -60,
+            "pose": {
+              "frame_id": "museum/map",
+              "map_id": "museum-map-demo",
+              "map_epoch": 1,
+              "x_m": 0.1,
+              "y_m": 0,
+              "z_m": 0,
+              "yaw_rad": 0.0,
+              "observed_at": "2026-11-04T13:00:09.700Z",
+              "valid": true
+            }
+          },
+          {
+            "sample_id": "rssi-2",
+            "captured_at": "2026-11-04T13:00:09.800Z",
+            "rssi_dbm": -58,
+            "pose": {
+              "frame_id": "museum/map",
+              "map_id": "museum-map-demo",
+              "map_epoch": 1,
+              "x_m": 0.2,
+              "y_m": 0,
+              "z_m": 0,
+              "yaw_rad": 0.0,
+              "observed_at": "2026-11-04T13:00:09.800Z",
+              "valid": true
+            }
+          }
+        ],
+        "median_rssi_dbm": -60,
+        "spread_db": 4,
+        "quality": "valid"
+      }
+    },
+    "heartbeat": {
+      "protocol_version": "2.0-draft",
+      "message_id": "msg-pi-heartbeat",
+      "mission_id": "demo-20261104-001",
+      "epoch": 1,
+      "seq": 3,
+      "sent_at": "2026-11-04T13:00:10.500Z",
+      "source": "pi",
+      "destination": "ground",
+      "kind": "heartbeat",
+      "correlation_id": null,
+      "expires_at": null,
+      "simulated": true,
+      "payload": {
+        "device_id": "pi-01",
+        "uptime_ms": 120000,
+        "clock_error_ms": 15,
+        "healthy": true,
+        "last_observation_at": "2026-11-04T13:00:10.000Z"
+      }
+    },
+    "beacon": {
+      "beacon_id": "tello-demo-01",
+      "bssid": "02:00:00:00:00:01",
+      "ssid": "TELLO-DEMO",
+      "beacon_epoch": 3,
+      "hold_state": "stable",
+      "flight_state": "airborne",
+      "verified_at": "2026-11-04T13:00:10.000Z",
+      "hold_valid_until": "2026-11-04T13:00:12.000Z",
+      "epoch": 3,
+      "dog_motion_allowed": true
+    },
+    "navigation": {
+      "map_id": "museum-map-demo",
+      "map_epoch": 1,
+      "frame_id": "museum/map"
+    },
+    "limits": {
+      "armed_receiver_id": "pi-01",
+      "clock_error_limit_ms": 50,
+      "heartbeat_max_age_ms": 2000,
+      "received_at": "2026-11-04T13:00:10.500Z"
+    }
+  },
+  "homing": {
+    "dog_motion_allowed": true,
+    "hysteresis_db": 2,
+    "search_budget": {
+      "steps_taken": 0,
+      "limit": 3
+    },
+    "beacon": {
+      "beacon_id": "tello-demo-01",
+      "bssid": "02:00:00:00:00:01",
+      "beacon_epoch": 3,
+      "hold_state": "stable"
+    },
+    "active_command_id": null,
+    "previous_candidate_id": null,
+    "track_id": "target-001",
+    "now": "2026-11-04T13:00:10.000Z",
+    "dog_vision": null,
+    "windows": [
+      {
+        "protocol_version": "2.0-draft",
+        "message_id": "msg-pi-rssi-window",
+        "mission_id": "demo-20261104-001",
+        "epoch": 1,
+        "seq": 2,
+        "sent_at": "2026-11-04T13:00:10.000Z",
+        "source": "pi",
+        "destination": "ground",
+        "kind": "rssi.window",
+        "correlation_id": null,
+        "expires_at": null,
+        "simulated": true,
+        "payload": {
+          "receiver_id": "pi-01",
+          "receiver_mount": "dog",
+          "interface": "wlan-measurement",
+          "beacon_id": "tello-demo-01",
+          "bssid": "02:00:00:00:00:01",
+          "beacon_epoch": 3,
+          "window_start": "2026-11-04T13:00:09.600Z",
+          "window_end": "2026-11-04T13:00:09.800Z",
+          "clock_error_ms": 15,
+          "samples": [
+            {
+              "sample_id": "rssi-0",
+              "captured_at": "2026-11-04T13:00:09.600Z",
+              "rssi_dbm": -62,
+              "pose": {
+                "frame_id": "museum/map",
+                "map_id": "museum-map-demo",
+                "map_epoch": 1,
+                "x_m": 0.0,
+                "y_m": 0,
+                "z_m": 0,
+                "yaw_rad": 0.0,
+                "observed_at": "2026-11-04T13:00:09.600Z",
+                "valid": true
+              }
+            },
+            {
+              "sample_id": "rssi-1",
+              "captured_at": "2026-11-04T13:00:09.700Z",
+              "rssi_dbm": -60,
+              "pose": {
+                "frame_id": "museum/map",
+                "map_id": "museum-map-demo",
+                "map_epoch": 1,
+                "x_m": 0.1,
+                "y_m": 0,
+                "z_m": 0,
+                "yaw_rad": 0.0,
+                "observed_at": "2026-11-04T13:00:09.700Z",
+                "valid": true
+              }
+            },
+            {
+              "sample_id": "rssi-2",
+              "captured_at": "2026-11-04T13:00:09.800Z",
+              "rssi_dbm": -58,
+              "pose": {
+                "frame_id": "museum/map",
+                "map_id": "museum-map-demo",
+                "map_epoch": 1,
+                "x_m": 0.2,
+                "y_m": 0,
+                "z_m": 0,
+                "yaw_rad": 0.0,
+                "observed_at": "2026-11-04T13:00:09.800Z",
+                "valid": true
+              }
+            }
+          ],
+          "median_rssi_dbm": -60,
+          "spread_db": 4,
+          "quality": "valid"
+        }
+      },
+      {
+        "protocol_version": "2.0-draft",
+        "message_id": "msg-pi-rssi-window-later",
+        "mission_id": "demo-20261104-001",
+        "epoch": 1,
+        "seq": 4,
+        "sent_at": "2026-11-04T13:00:10.000Z",
+        "source": "pi",
+        "destination": "ground",
+        "kind": "rssi.window",
+        "correlation_id": null,
+        "expires_at": null,
+        "simulated": true,
+        "payload": {
+          "receiver_id": "pi-01",
+          "receiver_mount": "dog",
+          "interface": "wlan-measurement",
+          "beacon_id": "tello-demo-01",
+          "bssid": "02:00:00:00:00:01",
+          "beacon_epoch": 3,
+          "window_start": "2026-11-04T13:00:10.600Z",
+          "window_end": "2026-11-04T13:00:10.800Z",
+          "clock_error_ms": 15,
+          "samples": [
+            {
+              "sample_id": "rssi-3",
+              "captured_at": "2026-11-04T13:00:10.600Z",
+              "rssi_dbm": -56,
+              "pose": {
+                "frame_id": "museum/map",
+                "map_id": "museum-map-demo",
+                "map_epoch": 1,
+                "x_m": 0.3,
+                "y_m": 0,
+                "z_m": 0,
+                "yaw_rad": 0.0,
+                "observed_at": "2026-11-04T13:00:10.600Z",
+                "valid": true
+              }
+            },
+            {
+              "sample_id": "rssi-4",
+              "captured_at": "2026-11-04T13:00:10.700Z",
+              "rssi_dbm": -54,
+              "pose": {
+                "frame_id": "museum/map",
+                "map_id": "museum-map-demo",
+                "map_epoch": 1,
+                "x_m": 0.4,
+                "y_m": 0,
+                "z_m": 0,
+                "yaw_rad": 0.0,
+                "observed_at": "2026-11-04T13:00:10.700Z",
+                "valid": true
+              }
+            },
+            {
+              "sample_id": "rssi-5",
+              "captured_at": "2026-11-04T13:00:10.800Z",
+              "rssi_dbm": -52,
+              "pose": {
+                "frame_id": "museum/map",
+                "map_id": "museum-map-demo",
+                "map_epoch": 1,
+                "x_m": 0.5,
+                "y_m": 0,
+                "z_m": 0,
+                "yaw_rad": 0.0,
+                "observed_at": "2026-11-04T13:00:10.800Z",
+                "valid": true
+              }
+            }
+          ],
+          "median_rssi_dbm": -54,
+          "spread_db": 4,
+          "quality": "valid"
+        }
+      }
+    ],
+    "candidates": {
+      "protocol_version": "2.0-draft",
+      "message_id": "msg-dog-navigation-candidates",
+      "mission_id": "demo-20261104-001",
+      "epoch": 1,
+      "seq": 3,
+      "sent_at": "2026-11-04T13:00:10.000Z",
+      "source": "dog",
+      "destination": "ground",
+      "kind": "navigation.candidates",
+      "correlation_id": null,
+      "expires_at": null,
+      "simulated": true,
+      "payload": {
+        "device_id": "dog-01",
+        "snapshot_id": "nav-001",
+        "map_id": "museum-map-demo",
+        "map_epoch": 1,
+        "navigation_mode": "slam_local_planner",
+        "observed_at": "2026-11-04T13:00:10.000Z",
+        "candidates": [
+          {
+            "candidate_id": "candidate-forward-01",
+            "snapshot_id": "nav-001",
+            "frame_id": "dog/base_link",
+            "map_id": "museum-map-demo",
+            "map_epoch": 1,
+            "delta_x_m": 0.05,
+            "delta_y_m": 0.0,
+            "delta_yaw_rad": 0.0,
+            "safe": true,
+            "clearance_m": 0.8,
+            "valid_until": "2026-11-04T13:00:10.500Z"
+          }
+        ],
+        "blocked": false,
+        "reason": "Synthetic local planner candidate, not a real route."
+      }
+    }
+  },
+  "schedule_settings": {
+    "sample_ms": 1000,
+    "timeout_ms": 5000,
+    "evidence_age_ms": 3000,
+    "max_in_flight": 1,
+    "model_id": "CONFIGURE_VERIFIED_IMAGE_MODEL",
+    "prompt_version": "patrol-demo-v2.0",
+    "scene_context": {
+      "staged_demo": true,
+      "area_closed_by_operator": true
+    },
+    "mission_id": "demo-20261104-001",
+    "epoch": 1,
+    "simulated": true
+  }
+}

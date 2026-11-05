@@ -1,0 +1,100 @@
+{
+  "takeoff_deadline_ms": 8000,
+  "land_deadline_ms": 8000,
+  "command_ids": {
+    "proposal-drone-001": "cmd-drone-001",
+    "operator-hover-001": "cmd-drone-hover-001",
+    "operator-land-001": "cmd-drone-land-001",
+    "operator-takeoff-001": "cmd-drone-takeoff-001",
+    "operator-supervised-001": "cmd-drone-supervised-001"
+  },
+  "message_ids": {
+    "proposal-drone-001": "msg-ground-to-drone-command",
+    "operator-hover-001": "msg-ground-to-drone-hover",
+    "operator-land-001": "msg-ground-to-drone-land"
+  },
+  "seq": {
+    "proposal-drone-001": 5,
+    "operator-hover-001": 6,
+    "operator-land-001": 7
+  },
+  "search": {
+    "step_cap": 2,
+    "primitive_ids": ["verified-search-left-v1", "verified-search-right-v1"]
+  },
+  "height_profile": {
+    "profile_id": "proposed_4m_floor_agl",
+    "allowed": [
+      {"height_m": 4.0, "height_reference": "floor_agl"}
+    ]
+  },
+  "primitives": [
+    {
+      "primitive_id": "verified-left-step-v1",
+      "action": "track_step",
+      "direction_hint": "left",
+      "lease_ms": 300,
+      "camera_id": "downward",
+      "supervised": false,
+      "reason": "Synthetic approved primitive; invalidates epoch-3 RSSI comparisons."
+    },
+    {
+      "primitive_id": "verified-search-left-v1",
+      "action": "search_step",
+      "direction_hint": "left",
+      "lease_ms": 400,
+      "camera_id": "downward",
+      "supervised": false,
+      "reason": "Seeded search step from the allowlist."
+    },
+    {
+      "primitive_id": "verified-search-right-v1",
+      "action": "search_step",
+      "direction_hint": "right",
+      "lease_ms": 400,
+      "camera_id": "downward",
+      "supervised": false,
+      "reason": "Seeded search step from the allowlist."
+    },
+    {
+      "primitive_id": "operator-supervised-step-v1",
+      "action": "search_step",
+      "lease_ms": 500,
+      "camera_id": "downward",
+      "supervised": true,
+      "reason": "operator-supervised search step"
+    },
+    {
+      "primitive_id": "verified-hold-v1",
+      "action": "hover",
+      "lease_ms": 500,
+      "camera_id": "downward",
+      "supervised": false,
+      "reason": "Synthetic hold/landing request, subject to recipient local safety."
+    },
+    {
+      "primitive_id": "verified-floor-land-v1",
+      "action": "land",
+      "lease_ms": 500,
+      "camera_id": "downward",
+      "supervised": false,
+      "reason": "Synthetic hold/landing request, subject to recipient local safety."
+    },
+    {
+      "primitive_id": "land-on-dog-v1",
+      "action": "land_on_dog",
+      "lease_ms": 500,
+      "camera_id": "downward",
+      "supervised": false,
+      "reason": "Synthetic land on the dog. This is not a floor landing."
+    },
+    {
+      "primitive_id": "verified-takeoff-v1",
+      "action": "takeoff",
+      "lease_ms": 500,
+      "camera_id": "downward",
+      "supervised": false,
+      "reason": "Allowlisted takeoff. The motor deadline is the takeoff deadline, not the 500 ms lease."
+    }
+  ]
+}

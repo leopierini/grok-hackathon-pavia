@@ -1,0 +1,17 @@
+robot-docs/sdks/
+.DS_Store
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+
+# Dog/drone evidence (camera frames may show people)
+evidence/
+
+# Generated run output and local configs
+artifacts/
+config/*.local.json

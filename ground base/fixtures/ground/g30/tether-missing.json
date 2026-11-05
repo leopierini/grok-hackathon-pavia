@@ -1,0 +1,8 @@
+{
+  "profile_name": "ethernet-tether",
+  "dog_transport": "ethernet",
+  "accepted": false,
+  "evidence": "simulated",
+  "cable_stays_connected": false,
+  "note": "Ethernet was requested without tether acceptance."
+}

@@ -1,0 +1,33 @@
+{
+  "protocol_version": "2.0-draft",
+  "message_id": "msg-dog-capabilities",
+  "mission_id": "demo-20261104-001",
+  "epoch": 1,
+  "seq": 1,
+  "sent_at": "2026-11-04T13:00:00.000Z",
+  "source": "dog",
+  "destination": "ground",
+  "kind": "capabilities.report",
+  "correlation_id": null,
+  "expires_at": null,
+  "simulated": true,
+  "payload": {
+    "device_id": "dog-01",
+    "role": "dog",
+    "model": "Unitree Go2 PRO",
+    "software_version": "synthetic-test-v1",
+    "supported_commands": ["stand", "move_local", "turn", "halt"],
+    "camera_ids": ["front"],
+    "pose_frames": ["museum/map", "dog/base_link"],
+    "features": {
+      "controlled_motion": true,
+      "downward_video": false,
+      "rssi_receiver": false,
+      "lidar": true,
+      "slam": true,
+      "target_range": true
+    },
+    "validated": true,
+    "acceptance_evidence_ref": "artifact://synthetic-only/capability-test"
+  }
+}

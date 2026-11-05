@@ -1,0 +1,7 @@
+{
+  "schema_version": "ground-task-v2",
+  "task_id": "GROUND-29",
+  "slot": "feature.v2_logs",
+  "factory": "patrol.ground.extensions.g29.implementation:create",
+  "scenario_factory": "patrol.ground.extensions.g29.scenarios:cases"
+}

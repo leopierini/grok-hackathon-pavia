@@ -1,0 +1,10 @@
+status
+arm
+start
+arrived entrance
+arrived room_2
+arrived display
+flight-ready
+halt
+reset
+quit

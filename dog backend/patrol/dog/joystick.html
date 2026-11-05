@@ -1,0 +1,994 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Go2 Joystick</title>
+<style>
+  :root {
+    --bg: #111418; --panel: #1b2027; --line: #2c333d; --text: #e6e9ee; --muted: #8b95a3;
+    --ok: #3ccf6e; --bad: #ff5b5b; --unk: #f0b429; --accent: #4aa3ff; --stop: #d61f1f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 13px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { padding: 8px 12px; overflow-x: hidden; user-select: none; -webkit-user-select: none;
+    display: flex; flex-direction: column; gap: 6px; }
+  /* Laptop/desktop: everything on one screen, no page scroll. Only the event log scrolls. */
+  @media (min-width: 1000px) and (min-height: 600px) {
+    html, body { height: 100%; overflow: hidden; }
+    .grid { flex: 1 1 auto; min-height: 0; }
+    .grid > .col { min-height: 0; }
+  }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  header h1 { font-size: 16px; margin: 0 6px 0 0; }
+  .badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--line); }
+  .badge.ok { background: #17442a; color: var(--ok); }
+  .badge.bad { background: #4a1717; color: var(--bad); }
+  .badge.unk { background: #47380f; color: var(--unk); }
+  .badge.fake { background: #22324a; color: var(--accent); }
+  .bar { display: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; }
+  #lockbar { background: #4a1717; color: #ffd0d0; border: 1px solid var(--bad); }
+  #blockbar { color: var(--unk); min-height: 1.3em; font-size: 12px; }
+  #viewbar { background: #22324a; color: #cfe3ff; font-size: 14px; border: 2px solid var(--accent); }
+  #viewbar.flash { animation: flash .6s ease-in-out 2; }
+  @keyframes flash { 50% { background: #3a5a8a; } }
+  #claim { margin-left: 10px; background: var(--accent); color: #06121f; border-color: #8cc4ff; font-weight: 800; padding: 4px 10px; }
+  #b-role { font-size: 14px; padding: 4px 12px; }
+  #b-role.ok { background: #17442a; color: var(--ok); border: 2px solid var(--ok); }
+  #b-role.unk { background: #47380f; color: var(--unk); border: 2px solid var(--unk); }
+  #safetyoff { background: #7a0f0f; color: #fff; font-weight: 800; font-size: 14px; border: 2px solid #ff8080; }
+  #tripbar { background: #5a1a00; color: #ffd9c2; border: 2px solid #ff8a3d; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 0.95fr); gap: 8px; }
+  @media (max-width: 999px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .col { display: flex; flex-direction: column; gap: 8px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+  .panel h2 { margin: 0 0 6px; font-size: 11px; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .vidpanel { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+  #video { width: 100%; flex: 1 1 auto; min-height: 120px; object-fit: contain; background: #000; border-radius: 6px; display: block; }
+  @media (max-width: 999px) { #video { aspect-ratio: 16 / 9; flex: none; } }
+  .stopbar { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+  button { font: inherit; color: var(--text); background: #2a313b; border: 1px solid #3a4350;
+    border-radius: 7px; padding: 6px 10px; cursor: pointer; touch-action: manipulation; }
+  button:hover:not(:disabled) { background: #343c48; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  #stop { background: var(--stop); border-color: #ff6b6b; font-size: 19px; font-weight: 800; padding: 12px 8px; letter-spacing: .5px; }
+  #stop:hover { background: #ee2a2a; }
+  #rest { background: #6b2a10; border-color: #b4521f; font-weight: 700; }
+  #shutdown { background: #3a1e22; border-color: #7a3a42; }
+  #shutdown.armed { background: #8a1010; border-color: #ff6b6b; font-weight: 700; }
+  #checkresult { font: 11px/1.35 ui-monospace, Menlo, monospace; color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
+  #checkresult .pass { color: var(--ok); font-weight: 700; } #checkresult .fail { color: var(--bad); font-weight: 700; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .row + .row { margin-top: 6px; }
+  select, input[type=range] { accent-color: var(--accent); }
+  select, input[type=text] { font: inherit; color: var(--text); background: #2a313b; border: 1px solid #3a4350; border-radius: 6px; padding: 5px 6px; }
+  input[type=text] { flex: 1 1 140px; min-width: 0; user-select: text; -webkit-user-select: text; }
+  input[type=text]:focus { outline: 2px solid var(--unk); }
+
+  .drive { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; }
+  .stickwrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .stick { position: relative; width: clamp(90px, 17vh, 170px); aspect-ratio: 1; border-radius: 50%;
+    background: radial-gradient(circle, #252c35 0%, #1a1f26 70%); border: 2px solid #3a4350; touch-action: none; }
+  .stick.h::before { content: ""; position: absolute; left: 8%; right: 8%; top: 50%; height: 2px; background: #3a4350; }
+  .knob { position: absolute; left: 50%; top: 50%; width: 34%; aspect-ratio: 1; border-radius: 50%;
+    background: var(--accent); transform: translate(-50%, -50%); box-shadow: 0 2px 10px #0008; pointer-events: none; }
+  .stick.active { border-color: var(--accent); }
+  .label { color: var(--muted); font-size: 11px; text-align: center; }
+  .speed { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 130px; }
+  #speedval { font-weight: 700; }
+  .keys { color: var(--muted); font-size: 11px; }
+  kbd { background: #2a313b; border: 1px solid #3a4350; border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-size: 10px; }
+
+  /* audio meters */
+  .meter { display: grid; grid-template-columns: 64px 1fr 74px; gap: 6px; align-items: center; margin-bottom: 5px; }
+  .meter .name { color: var(--muted); font-size: 12px; }
+  .meter .val { font-variant-numeric: tabular-nums; font-size: 12px; text-align: right; }
+  .track { position: relative; height: 12px; background: #11151a; border: 1px solid #333b46; border-radius: 6px; overflow: hidden; }
+  .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 6px;
+    background: linear-gradient(90deg, #2f9e5a 0%, #3ccf6e 65%, #f0b429 85%, #ff5b5b 100%); background-size: var(--w, 300px) 100%; transition: width .08s linear; }
+  .fill.vol { background: var(--accent); transition: width .2s; }
+  .ticks { position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), #0006 calc(10% - 1px) 10%); }
+  .dim .fill { opacity: .35; }
+  #talk { background: #1d3b5c; border-color: #4aa3ff; font-weight: 700; min-width: 120px; }
+  #talk.on { background: #c26a00; border-color: #ffb04a; color: #fff; }
+  #saybox-hint { display: none; font-size: 11px; color: var(--unk); margin-top: 3px; }
+
+  /* LiDAR top-down: forward = up. Fixed small square; never pushes the STOP button out of view. */
+  #lidarcanvas { display: block; width: 100%; max-width: 100%; height: clamp(150px, 26vh, 280px); background: #0b0e12;
+    border-radius: 6px; object-fit: contain; }
+  #lidarinfo { font: 12px/1.35 ui-monospace, Menlo, monospace; color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
+  #lidarinfo.stale, #lidarinfo .stale { color: var(--bad); font-weight: 700; }
+  #lidarwarn { display: none; margin-top: 4px; color: var(--unk); font-size: 12px; }
+  #lidarwarn .row { margin-top: 4px; }
+  /* Follow signal (demo): compact, below the LiDAR panel. STOP stays the dominant control. */
+  #lidarcanvas.placing { cursor: crosshair; outline: 2px dashed #ff4fd8; outline-offset: -2px; }
+  #placept.on { background: #5b1f52; border-color: #ff4fd8; color: #fff; font-weight: 700; }
+  #followstart { background: #17442a; border-color: #2f8f52; font-weight: 700; }
+  #followstop { background: #47380f; border-color: #a07a1f; font-weight: 700; }
+  .fgrid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; margin-top: 6px; }
+  #rssi { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #rssi .u { font-size: 12px; font-weight: 600; color: var(--muted); }
+  #rssis { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #spark { display: block; width: 100%; height: 46px; background: #0b0e12; border-radius: 6px; }
+  #followstate { font: 12px/1.35 ui-monospace, Menlo, monospace; color: var(--muted); margin-top: 4px; overflow-wrap: anywhere; }
+  #followstate b { color: var(--text); }
+  #followtimer { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; color: var(--text); }
+  #followwarn, #placehint { display: none; color: var(--unk); font-size: 12px; margin-top: 3px; }
+  #placehint { color: #ff9cec; }
+  #followrefused { display: none; color: var(--bad); font-size: 12px; margin-top: 3px; overflow-wrap: anywhere; }
+  .badge.follow { background: #3a1a40; color: #ff9cec; }
+  .statpanel { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .tablewrap { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+  #latency { font-size: 18px; font-weight: 700; margin: 2px 0 4px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 12px; }
+  td { padding: 1px 3px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { color: var(--muted); width: 46%; }
+  .v-true { color: var(--ok); font-weight: 600; } .v-false { color: var(--bad); font-weight: 600; }
+  .v-null { color: var(--unk); }
+  #events { flex: 1 1 60px; min-height: 60px; overflow-y: auto; font: 11px/1.3 ui-monospace, Menlo, monospace; color: var(--muted);
+    margin-top: 6px; overflow-wrap: anywhere; border-top: 1px solid var(--line); padding-top: 4px; }
+  @media (max-width: 999px) { #events { max-height: 180px; } }
+  #events .warn { color: var(--unk); } #events .error { color: var(--bad); }
+  #events .trip { color: #fff; background: #8a1010; font-weight: 700; padding: 2px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Go2 Joystick</h1>
+  <span id="b-fake" class="badge fake" style="display:none">FAKE / SIMULATED</span>
+  <span id="b-ws" class="badge bad">page offline</span>
+  <span id="b-dog" class="badge unk">dog ?</span>
+  <span id="b-role" class="badge">role ?</span>
+  <span id="b-lock" class="badge">motion ?</span>
+  <span id="b-safe" class="badge">safety ?</span>
+  <span id="b-drive" class="badge">drive ?</span>
+  <span id="b-brake" class="badge">LiDAR brake ?</span>
+  <span id="b-follow" class="badge">follow: idle</span>
+  <span id="b-mic" class="badge">mic off</span>
+</header>
+<div id="safetyoff" class="bar">SAFETY THRESHOLDS OFF: no automatic fence / speed / tilt / overshoot stops. STOP, Q and the staff controller still work.</div>
+<div id="tripbar" class="bar"></div>
+<div id="viewbar" class="bar">VIEW ONLY: press Take control to drive from this tab (STOP works here anyway).
+  <button id="claim">Take control</button></div>
+<div id="lockbar" class="bar"></div>
+<div id="blockbar"></div>
+
+<div class="grid">
+  <!-- column 1: camera, stop, drive -->
+  <div class="col">
+    <div class="panel vidpanel">
+      <img id="video" alt="live camera" src="/video.mjpg">
+      <div class="stopbar">
+        <button id="stop" title="Space or Q">STOP (lie down softly)</button>
+        <button id="rest" title="Q">REST (lie down slowly)</button>
+      </div>
+      <div class="drive">
+        <div class="stickwrap"><div class="stick" id="lstick"><div class="knob"></div></div>
+          <div class="label">WALK <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div></div>
+        <div class="speed">
+          <div class="label">Speed</div>
+          <input type="range" id="speed" min="10" max="100" step="5" value="50">
+          <div><span id="speedval">50</span>%</div>
+          <div class="label" id="speedabs"></div>
+        </div>
+        <div class="stickwrap"><div class="stick h" id="rstick"><div class="knob"></div></div>
+          <div class="label">TURN <kbd>J</kbd><kbd>L</kbd> <kbd>&larr;</kbd><kbd>&rarr;</kbd></div></div>
+      </div>
+      <div class="keys"><kbd>Space</kbd> / <kbd>Q</kbd> = STOP, lie down softly (also cuts the speaker) &middot;
+        release = stop, stay standing &middot; leaving the tab stops &middot; the staff controller is always the primary stop.</div>
+    </div>
+  </div>
+
+  <!-- column 2: dog controls + audio -->
+  <div class="col">
+    <div class="panel">
+      <h2>Dog</h2>
+      <div class="row">
+        <button id="stand" class="ctl">Stand up</button>
+        <button id="rearm" class="ctl">Re-arm (reconnect)</button>
+        <button id="sethome" class="ctl" title="Centre the fence on the dog's current spot (stationary only)">Set home here</button>
+      </div>
+      <div class="row">
+        <button id="photo" class="ctl">Photo</button>
+        <select id="zone" class="ctl"><option>entrance</option><option selected>room_2</option><option>display</option></select>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="safety" class="ctl" checked> Safety thresholds</label>
+        <label title="Forward speed becomes 0 while the nearest obstacle ahead is closer than 0.5 m (fresh LiDAR only). Turning, sideways and backward still work."><input type="checkbox" id="lidarbrake" class="ctl" checked> LiDAR brake (0.5 m)</label>
+      </div>
+      <div class="row" title="Sends the sticks like the Unitree remote (rt/wirelesscontroller), so the dog's own obstacle avoidance applies. Only while stationary. Every stop also zeroes the sticks.">
+        <label><input type="checkbox" id="drivemode" class="ctl"> Drive via remote-controller path (dog's own obstacle avoidance)</label>
+      </div>
+      <div class="label" style="text-align:left">test first: staff controller stop must still win</div>
+      <div class="row">
+        <label><input type="checkbox" id="light" class="ctl"> Head light</label>
+        <input type="range" id="bright" class="ctl" min="1" max="10" step="1" value="5">
+        <span id="brightval">5</span>/10
+      </div>
+      <div class="row" title="No-motion test from real_selftest. Releases the connection, runs the test on a fresh one, saves it to session.jsonl, then re-arms automatically. STOP keeps working.">
+        <select id="checkstep" class="ctl">
+          <option value="audio" selected>Audio test (chime + mic, at Set volume; 5 if it is 0)</option>
+          <option value="read">Read check (status + photo)</option>
+        </select>
+        <button id="runcheck" class="ctl">Run test</button>
+      </div>
+      <div id="checkresult">No test run yet.</div>
+      <div class="row">
+        <button id="shutdown" class="ctl" title="Same as Ctrl+C in the server terminal: the dog lies down softly, then the server exits">Shut down server</button>
+      </div>
+    </div>
+
+    <div class="panel" id="audiopanel">
+      <h2>Speaker &amp; microphone (live)</h2>
+      <div class="meter" id="m-vol" title="The dog's own volume setting, read back from its state stream">
+        <span class="name">Volume</span><div class="track"><div class="fill vol"></div><div class="ticks"></div></div><span class="val">?</span></div>
+      <div class="meter" id="m-mic" title="Dog microphone level (RMS, peak over 0.3 s). Live only while Listen or Record is on">
+        <span class="name">Dog mic</span><div class="track"><div class="fill"></div><div class="ticks"></div></div><span class="val">off</span></div>
+      <div class="meter" id="m-spk" title="What we are sending to the dog's speaker right now">
+        <span class="name">Speaker</span><div class="track"><div class="fill"></div><div class="ticks"></div></div><span class="val">idle</span></div>
+      <div class="row">
+        <span class="label">Set volume</span>
+        <input type="range" id="vol" class="ctl" min="0" max="10" step="1" value="5" style="flex:1">
+        <span id="volval" style="min-width:2.5em">5/10</span>
+      </div>
+      <div class="row">
+        <label title="Hear the dog's microphone in this browser (any tab)"><input type="checkbox" id="listen"> Listen</label>
+        <button id="talk" class="ctl" title="Hold: your laptop mic plays on the dog's speaker">Hold to talk</button>
+        <button id="record" class="ctl" title="Save the dog's mic to a WAV in the evidence folder">Record</button>
+        <select id="recsecs" class="ctl"><option>3</option><option selected>5</option><option>10</option><option>30</option></select>s
+      </div>
+      <div class="row">
+        <select id="preset" class="ctl" style="max-width:9em">
+          <option value="">Phrases…</option>
+          <option data-lang="it">Buonasera, quest'area è riservata.</option>
+          <option data-lang="it">Lavora qui? Come si chiama?</option>
+          <option data-lang="it">Grazie. Resti dov'è, sta arrivando qualcuno.</option>
+          <option data-lang="en">Good evening, this area is restricted.</option>
+          <option data-lang="en">Do you work here? What is your name?</option>
+        </select>
+        <input type="text" id="saytext" class="ctl" maxlength="400" placeholder="Text for the dog to say">
+      </div>
+      <div class="row">
+        <select id="saylang" class="ctl"><option value="it" selected>Italian</option><option value="en">English</option></select>
+        <button id="say" class="ctl">Say</button>
+        <button id="chime" class="ctl">Test chime</button>
+        <button id="audiostop" class="ctl">Stop audio</button>
+      </div>
+      <div id="saybox-hint">Typing: Space and Q type text here and do NOT stop the dog. Use the STOP button. Esc leaves the box, Enter says it.</div>
+    </div>
+  </div>
+
+  <!-- column 3: lidar + status + events -->
+  <div class="col">
+    <div class="panel" id="lidarpanel">
+      <h2>LiDAR (top-down)</h2>
+      <canvas id="lidarcanvas" width="400" height="400" aria-label="LiDAR top-down view, forward is up"></canvas>
+      <div id="lidarinfo">LiDAR: waiting for data</div>
+      <div id="lidarnear" class="label" style="text-align:left">Nearest obstacle ahead: &ndash;</div>
+      <div id="lidarwarn"><div id="lidarwarntext"></div>
+        <div class="row" id="lidaronrow"><button id="lidaron" class="ctl" title="Sends 'on' to the dog's LiDAR switch. Staff controller only; never automatic.">Turn LiDAR on (ask staff first)</button></div></div>
+    </div>
+    <div class="panel" id="followpanel">
+      <h2>Follow signal (demo)</h2>
+      <div class="row">
+        <button id="placept" class="ctl" aria-pressed="false" title="Then click the LiDAR panel: places (or moves) the simulated signal point there">Place signal point</button>
+        <button id="clearpt" class="ctl" title="Remove the simulated signal point (ends following)">Clear</button>
+        <button id="followstart" class="ctl" title="Start once; the dog walks toward the stronger simulated signal. STOP or Stop following ends it. Controller only">Start following</button>
+        <button id="followstop" class="ctl" title="Ends following: StopMove, the dog stays standing">Stop following</button>
+      </div>
+      <div id="placehint">Click the LiDAR panel where the simulated signal point should be (inside the dashed area: within fence − 1.5 m of home).</div>
+      <div class="fgrid">
+        <div><div id="rssi">&ndash; <span class="u">dBm</span></div><div id="rssis">smoothed &ndash;</div></div>
+        <canvas id="spark" width="300" height="60" aria-label="Signal strength, last 30 seconds"></canvas>
+      </div>
+      <div id="followstate"><b>idle</b> &middot; no signal point</div>
+      <div id="followrefused"></div>
+      <div id="followwarn">Drive mode Move: dog's own avoidance is off — our LiDAR dodge + brake only</div>
+    </div>
+    <div class="panel statpanel">
+      <div class="label" style="text-align:left">Last stop latency (stop command to stationary)</div>
+      <div id="latency">&ndash;</div>
+      <div class="tablewrap"><table id="status"></table></div>
+      <div id="events"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const S = { ws: null, role: "view", caps: { vx: 0.3, vy: 0.2, vyaw: 0.6 }, keys: new Set(),
+              left: { x: 0, y: 0 }, right: { x: 0 }, sentZero: true, lightSynced: false, volSynced: false,
+              status: null, meter: null };
+
+  // ---------------------------------------------------------------- websocket
+  function send(obj) {
+    if (S.ws && S.ws.readyState === 1) { S.ws.send(JSON.stringify(obj)); return true; }
+    return false;
+  }
+  function connect() {
+    const ws = new WebSocket(`ws://${location.host}/ws`);
+    ws.binaryType = "arraybuffer";
+    S.ws = ws;
+    ws.onopen = () => { setBadge("b-ws", "page online", "ok"); if ($("listen").checked) send({ t: "listen", on: true }); };
+    ws.onmessage = (ev) => {
+      if (typeof ev.data !== "string") { playListen(ev.data); return; }
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.t === "hello") { S.role = m.role; S.caps = m.caps; if (m.no_lidar_warn_s) LID.warnMs = m.no_lidar_warn_s * 1000; if (m.fake) $("b-fake").style.display = ""; updateSpeed(); updateRole(); }
+      else if (m.t === "role") { S.role = m.role; if (m.role !== "control") { releaseAll("demoted"); talkEnd(); } updateRole(); }
+      else if (m.t === "status") { S.role = m.role; render(m); }
+      else if (m.t === "meter") { renderMeter(m); }
+      else if (m.t === "lidar") { renderLidar(m); }
+      else if (m.t === "event") { addEvent(m.msg, m.level); }
+    };
+    ws.onclose = () => {
+      releaseAll("ws closed"); talkEnd(); lidarReset("LiDAR: page offline");
+      setPlacing(false); setBadge("b-follow", "follow ?", "unk");
+      setBadge("b-ws", S.shutdown ? "server stopped (start it again to reconnect)" : "page offline: reconnecting", "bad");
+      S.role = "view"; updateRole();
+      setTimeout(connect, 1000);
+    };
+    ws.onerror = () => { try { ws.close(); } catch {} };
+  }
+
+  // ---------------------------------------------------------------- stop (always soft: rest)
+  function stopNow(kind) {
+    S.keys.clear(); resetSticks(); talkEnd();
+    const ok = send({ t: kind });            // "stop" or "rest": both call RealDog.rest()
+    S.sentZero = true;
+    if (ok) addEvent(`STOP sent (${kind}): lie down softly`, "warn");
+    else addEvent("STOP NOT SENT: page offline. USE THE STAFF CONTROLLER (or Q in the server terminal)", "error");
+  }
+  $("stop").addEventListener("click", (e) => { stopNow("stop"); e.currentTarget.blur(); });
+  $("rest").addEventListener("click", (e) => { stopNow("rest"); e.currentTarget.blur(); });
+
+  // ---------------------------------------------------------------- other buttons
+  const btn = (id, fn) => $(id).addEventListener("click", (e) => { fn(); e.currentTarget.blur(); });
+  btn("stand", () => send({ t: "stand" }));
+  btn("rearm", () => send({ t: "rearm" }));
+  btn("photo", () => send({ t: "photo", zone: $("zone").value }));
+  btn("claim", () => send({ t: "claim" }));
+  btn("lidaron", () => {
+    if (!S.status || S.status.standing !== true) { addEvent(LIDAR_LYING, "warn"); return; }   // server refuses too
+    send({ t: "lidar_on" }); addEvent("Asked the dog to switch its LiDAR on", "warn");
+  });
+  btn("sethome", () => send({ t: "set_home" }));
+  btn("runcheck", () => send({ t: "check", step: $("checkstep").value, volume: Number($("vol").value) }));
+  let shutArmed = 0;                          // two clicks within 4 s (no blocking browser dialog)
+  btn("shutdown", () => {
+    const b = $("shutdown");
+    if (Date.now() - shutArmed > 4000) {
+      shutArmed = Date.now(); b.classList.add("armed"); b.textContent = "Click again: dog lies down + server stops";
+      setTimeout(() => { if (Date.now() - shutArmed >= 4000) { b.classList.remove("armed"); b.textContent = "Shut down server"; } }, 4100);
+      return;
+    }
+    shutArmed = 0; b.classList.remove("armed"); b.textContent = "Shutting down…";
+    if (send({ t: "shutdown" })) { S.shutdown = true; addEvent("Shut down sent: dog lies down softly, then the server exits", "warn"); }
+    else addEvent("Shut down NOT sent: page offline", "error");
+  });
+  $("checkstep").addEventListener("change", (e) => e.target.blur());
+  $("safety").addEventListener("change", (e) => {
+    const on = e.target.checked;
+    if (!on && !confirm("Turn OFF the automatic safety thresholds (fence, speed, tilt, route overshoot)?\n" +
+                        "STOP / Q and the staff controller keep working.")) { e.target.checked = true; e.target.blur(); return; }
+    send({ t: "safety", enabled: on }); e.target.blur();
+  });
+  $("lidarbrake").addEventListener("change", (e) => { send({ t: "lidar_brake", enabled: e.target.checked }); e.target.blur(); });
+  $("drivemode").addEventListener("change", (e) => {
+    send({ t: "drive_mode", mode: e.target.checked ? "sticks" : "move" }); e.target.blur();   // server refuses unless stationary
+  });
+  let lastHint = 0;
+  function viewHint() {                       // a view-only tab tried to drive: say why, don't ignore silently
+    const now = Date.now(); if (now - lastHint < 1500) return; lastHint = now;
+    addEvent("View only: press Take control to drive from this tab", "warn");
+    const vb = $("viewbar"); vb.classList.remove("flash"); void vb.offsetWidth; vb.classList.add("flash");
+  }
+  $("light").addEventListener("change", (e) => {
+    send({ t: "light", level: e.target.checked ? Number($("bright").value) : 0 }); e.target.blur();
+  });
+  $("bright").addEventListener("input", (e) => { $("brightval").textContent = e.target.value; });
+  $("bright").addEventListener("change", (e) => {
+    if ($("light").checked) send({ t: "light", level: Number(e.target.value) });
+    e.target.blur();
+  });
+  $("speed").addEventListener("input", updateSpeed);
+  $("speed").addEventListener("change", (e) => e.target.blur());
+  ["zone", "recsecs", "saylang"].forEach((id) => $(id).addEventListener("change", (e) => e.target.blur()));
+  function speedFrac() { return Number($("speed").value) / 100; }
+  function updateSpeed() {
+    const f = speedFrac(); $("speedval").textContent = Math.round(f * 100);
+    $("speedabs").textContent = `${(f * S.caps.vx).toFixed(2)} m/s · ${(f * S.caps.vy).toFixed(2)} m/s · ${(f * S.caps.vyaw).toFixed(2)} rad/s`;
+  }
+
+  // ---------------------------------------------------------------- audio controls
+  $("vol").addEventListener("input", (e) => { $("volval").textContent = `${e.target.value}/10`; });
+  $("vol").addEventListener("change", (e) => { send({ t: "volume", level: Number(e.target.value) }); e.target.blur(); });
+  btn("chime", () => send({ t: "chime" }));
+  btn("audiostop", () => { talkEnd(); send({ t: "audio_stop" }); });
+  btn("record", () => send({ t: "record", seconds: Number($("recsecs").value) }));
+  function sayNow() {
+    const text = $("saytext").value.trim();
+    if (!text) { addEvent("Say: type a text or pick a phrase first", "warn"); return; }
+    send({ t: "say", text, lang: $("saylang").value });
+  }
+  btn("say", sayNow);
+  $("preset").addEventListener("change", (e) => {
+    const o = e.target.selectedOptions[0];
+    if (o && o.value !== "") { $("saytext").value = o.textContent; $("saylang").value = o.dataset.lang || "it"; }
+    e.target.value = ""; e.target.blur();
+  });
+  const sayBox = $("saytext");
+  sayBox.addEventListener("focus", () => { releaseAll("typing"); $("saybox-hint").style.display = "block"; });
+  sayBox.addEventListener("blur", () => { $("saybox-hint").style.display = "none"; });
+
+  // Listen: dog mic -> this browser (16 kHz mono s16 binary frames)
+  const L = { ctx: null, gain: null, head: 0 };
+  $("listen").addEventListener("change", (e) => {
+    const on = e.target.checked;
+    if (on && !L.ctx) {
+      L.ctx = new AudioContext(); L.gain = L.ctx.createGain(); L.gain.connect(L.ctx.destination);
+    }
+    if (L.ctx) L.ctx.resume();
+    send({ t: "listen", on }); e.target.blur();
+  });
+  function playListen(buf) {
+    if (!L.ctx || !$("listen").checked) return;
+    const i16 = new Int16Array(buf);
+    if (!i16.length) return;
+    const ab = L.ctx.createBuffer(1, i16.length, 16000);
+    const ch = ab.getChannelData(0);
+    for (let i = 0; i < i16.length; i++) ch[i] = i16[i] / 32768;
+    const now = L.ctx.currentTime;
+    if (L.head < now + 0.03 || L.head > now + 0.6) L.head = now + 0.08;   // keep latency bounded
+    const src = L.ctx.createBufferSource(); src.buffer = ab; src.connect(L.gain);
+    src.start(L.head); L.head += ab.duration;
+    L.gain.gain.value = T.on ? 0 : 1;        // half duplex: mute the dog while you talk (no echo loop)
+  }
+
+  // Hold to talk: laptop mic -> dog speaker (mono s16 binary frames at the context rate)
+  const T = { on: false, ctx: null, stream: null, node: null, src: null, pending: [], n: 0 };
+  const WORKLET = "class P extends AudioWorkletProcessor{process(i){const c=i[0]&&i[0][0];if(c)this.port.postMessage(c.slice(0));return true}}registerProcessor('pcm-tap',P);";
+  async function talkStart() {
+    if (T.on || S.role !== "control") { if (S.role !== "control") viewHint(); return; }
+    T.on = true; $("talk").classList.add("on"); $("talk").textContent = "Talking… (release)";
+    try {
+      if (!T.ctx) {
+        T.ctx = new AudioContext();
+        await T.ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" })));
+      }
+      await T.ctx.resume();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
+      if (!T.on) { stream.getTracks().forEach((t) => t.stop()); return; }
+      T.stream = stream;
+      T.src = T.ctx.createMediaStreamSource(stream);
+      T.node = new AudioWorkletNode(T.ctx, "pcm-tap");
+      T.node.port.onmessage = (ev) => {
+        if (!T.on) return;
+        T.pending.push(ev.data); T.n += ev.data.length;
+        if (T.n >= T.ctx.sampleRate * 0.04) {                // ~40 ms per message
+          const out = new Int16Array(T.n); let k = 0;
+          for (const f of T.pending) for (let i = 0; i < f.length; i++) out[k++] = Math.max(-1, Math.min(1, f[i])) * 32767;
+          T.pending = []; T.n = 0;
+          if (S.ws && S.ws.readyState === 1) S.ws.send(out.buffer);
+        }
+      };
+      T.src.connect(T.node);
+      send({ t: "talk", on: true, rate: T.ctx.sampleRate });
+    } catch (err) {
+      addEvent(`Talk: microphone not available (${err && err.message || err})`, "error");
+      talkEnd();
+    }
+  }
+  function talkEnd() {
+    if (!T.on) return;
+    T.on = false; $("talk").classList.remove("on"); $("talk").textContent = "Hold to talk";
+    send({ t: "talk", on: false });
+    try { if (T.src) T.src.disconnect(); if (T.node) T.node.disconnect(); } catch {}
+    if (T.stream) T.stream.getTracks().forEach((t) => t.stop());
+    T.stream = T.src = T.node = null; T.pending = []; T.n = 0;
+  }
+  $("talk").addEventListener("pointerdown", (e) => { e.preventDefault(); $("talk").setPointerCapture(e.pointerId); talkStart(); });
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach((k) => $("talk").addEventListener(k, talkEnd));
+
+  // ---------------------------------------------------------------- keyboard
+  // Keys are tracked by PHYSICAL key (e.code), so Option/Shift can't change the
+  // character between keydown and keyup and leave a key "stuck" as held.
+  const MOVE_CODES = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyJ: "j", KeyL: "l",
+                       ArrowLeft: "arrowleft", ArrowRight: "arrowright" };
+  const MODIFIERS = new Set(["Meta", "Alt", "Control", "OS"]);
+  window.addEventListener("keydown", (e) => {
+    // Typing in the say box: keys type text (no drive, no keyboard STOP; the STOP button works).
+    if (e.target === sayBox) {
+      if (e.key === "Escape") { e.preventDefault(); sayBox.blur(); }
+      else if (e.key === "Enter") { e.preventDefault(); sayNow(); }
+      return;
+    }
+    // STOP keys first, ALWAYS, even with modifiers held.
+    if (e.code === "Space") { e.preventDefault(); if (!e.repeat) stopNow("stop"); return; }
+    if (e.code === "KeyQ") { e.preventDefault(); if (!e.repeat) stopNow("rest"); return; }
+    // Any modifier (Cmd can swallow keyups on macOS): drop every held key, drive nothing.
+    if (MODIFIERS.has(e.key) || e.metaKey || e.ctrlKey || e.altKey) { S.keys.clear(); return; }
+    const k = MOVE_CODES[e.code];
+    if (k) { e.preventDefault(); if (S.role !== "control") { viewHint(); return; } S.keys.add(k); }
+  }, true);
+  window.addEventListener("keyup", (e) => {
+    if (e.target === sayBox) return;
+    if (e.code === "Space") { e.preventDefault(); return; }  // never "click" a focused button
+    if (MODIFIERS.has(e.key)) { S.keys.clear(); return; }
+    const k = MOVE_CODES[e.code];
+    if (k) { e.preventDefault(); S.keys.delete(k); }
+  }, true);
+
+  // ---------------------------------------------------------------- virtual sticks
+  function makeStick(el, horizontalOnly, out) {
+    const knob = el.querySelector(".knob");
+    let id = null;
+    function setFrom(ev) {
+      const r = el.getBoundingClientRect();
+      const rad = r.width / 2;
+      let dx = (ev.clientX - (r.left + rad)) / rad, dy = (ev.clientY - (r.top + rad)) / rad;
+      if (horizontalOnly) dy = 0;
+      const m = Math.hypot(dx, dy); if (m > 1) { dx /= m; dy /= m; }
+      const dead = 0.08;
+      out.x = Math.abs(dx) < dead ? 0 : dx; out.y = Math.abs(dy) < dead ? 0 : dy;
+      knob.style.left = `${50 + dx * 50 * 0.75}%`; knob.style.top = `${50 + dy * 50 * 0.75}%`;
+    }
+    el.addEventListener("pointerdown", (ev) => {
+      if (S.role !== "control") { viewHint(); return; }
+      id = ev.pointerId; el.setPointerCapture(id); el.classList.add("active"); setFrom(ev); ev.preventDefault();
+    });
+    el.addEventListener("pointermove", (ev) => { if (ev.pointerId === id) setFrom(ev); });
+    const end = (ev) => { if (ev.pointerId !== id) return; id = null; reset(); };
+    el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+    el.addEventListener("lostpointercapture", end);
+    function reset() { out.x = 0; out.y = 0; knob.style.left = "50%"; knob.style.top = "50%"; el.classList.remove("active"); id = null; }
+    return reset;
+  }
+  const resetL = makeStick($("lstick"), false, S.left);
+  const resetR = makeStick($("rstick"), true, S.right);
+  function resetSticks() { resetL(); resetR(); }
+
+  function vector() {
+    const has = (k) => S.keys.has(k) ? 1 : 0;
+    const clamp = (v) => Math.max(-1, Math.min(1, v));
+    return {
+      x: clamp(has("w") - has("s") - S.left.y),                         // stick up = forward
+      y: clamp(has("a") - has("d") - S.left.x),                         // stick left = +y (left)
+      yaw: clamp(has("j") + has("arrowleft") - has("l") - has("arrowright") - S.right.x),  // left = +yaw
+    };
+  }
+  function releaseAll(why) {
+    S.keys.clear(); resetSticks();
+    if (!S.sentZero) { send({ t: "drive", x: 0, y: 0, yaw: 0, speed: speedFrac() }); S.sentZero = true; }
+  }
+  // Send while held (~15 Hz); one zero on release. Server dead-man covers anything lost.
+  setInterval(() => {
+    if (S.role !== "control") return;
+    const v = vector();
+    if (v.x || v.y || v.yaw) { if (send({ t: "drive", ...v, speed: speedFrac() })) S.sentZero = false; }
+    else if (!S.sentZero) { send({ t: "drive", x: 0, y: 0, yaw: 0, speed: speedFrac() }); S.sentZero = true; }
+  }, 66);
+  window.addEventListener("blur", () => { releaseAll("blur"); talkEnd(); followLeave("blur"); });
+  window.addEventListener("pagehide", () => { releaseAll("pagehide"); talkEnd(); followLeave("pagehide"); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { releaseAll("hidden"); talkEnd(); followLeave("hidden"); } });
+
+  // ---------------------------------------------------------------- rendering
+  function setBadge(id, text, cls) { const b = $(id); b.textContent = text; b.className = `badge ${cls || ""}`; }
+  function fmt(v) {
+    if (v === null || v === undefined) return '<span class="v-null">unknown</span>';
+    if (v === true) return '<span class="v-true">yes</span>';
+    if (v === false) return '<span class="v-false">no</span>';
+    if (Array.isArray(v)) return v.map((x) => typeof x === "number" ? x.toFixed(2) : x).join(", ");
+    return String(v).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  }
+  function updateRole() {
+    const ctl = S.role === "control";
+    setBadge("b-role", ctl ? "YOU HAVE CONTROL" : "VIEW ONLY: press Take control", ctl ? "ok" : "unk");
+    document.querySelectorAll(".ctl").forEach((el) => { el.disabled = !ctl; });
+    $("viewbar").style.display = ctl ? "none" : "block";
+    if (ctl && S.status) $("sethome").disabled = !(S.status.stationary === true && !S.status.moving);
+    if (ctl && S.meter && S.meter.recording) $("record").disabled = true;
+    if (ctl && S.status) $("runcheck").disabled = !!S.status.busy || !!S.status.resting;
+    if (ctl) followButtons(); else if (FW.placing) setPlacing(false);
+  }
+  // dBFS -> bar width: -60 dB = empty, 0 dB = full
+  const dbPct = (db) => db === null || db === undefined ? 0 : Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+  function setMeter(id, pct, text, dim) {
+    const m = $(id); const f = m.querySelector(".fill");
+    f.style.width = `${pct}%`; f.style.setProperty("--w", `${m.querySelector(".track").clientWidth}px`);
+    m.querySelector(".val").textContent = text; m.classList.toggle("dim", !!dim);
+  }
+  function renderMeter(m) {
+    S.meter = m;
+    const vol = m.volume;
+    setMeter("m-vol", vol === null || vol === undefined ? 0 : vol * 10,
+             vol === null || vol === undefined ? "unknown" : `${vol}/10${vol === 0 ? " MUTE" : ""}`, false);
+    const micLive = m.mic_on && m.mic_age_s !== null && m.mic_age_s < 1.0;
+    setMeter("m-mic", micLive ? dbPct(m.mic_dbfs) : 0,
+             !m.mic_on ? "off" : !micLive ? "no audio" : `${(m.mic_dbfs ?? -90).toFixed(0)} dB`, !micLive);
+    setMeter("m-spk", m.playing ? dbPct(m.spk_dbfs) : 0,
+             m.talking ? "talking" : m.playing ? `${m.queued_s.toFixed(1)} s left` : "idle", !m.playing);
+    setBadge("b-mic", m.recording ? "REC dog mic" : m.mic_on ? `mic on (${m.listeners} listening)` : "mic off",
+             m.recording ? "bad" : m.mic_on ? "ok" : "");
+    if (!S.volSynced && m.volume !== null && m.volume !== undefined && document.activeElement !== $("vol")) {
+      S.volSynced = true; $("vol").value = m.volume; $("volval").textContent = `${m.volume}/10`;
+    }
+    $("record").textContent = m.recording ? "Recording…" : "Record";
+    if (S.role === "control") $("record").disabled = !!m.recording;
+    if ($("listen").checked !== !!m.listening && document.activeElement !== $("listen") && S.ws && S.ws.readyState === 1) {
+      send({ t: "listen", on: $("listen").checked });       // resync after a reconnect
+    }
+  }
+  function render(s) {
+    S.status = s;
+    updateRole();
+    renderLidarWarn(s);
+    setBadge("b-dog", s.busy === "check" ? "running test…" : s.connected ? "dog connected"
+             : (s.busy === "connecting" ? "connecting…" : s.auto_connect && s.connect_error ? "waiting for the dog…" : "dog not connected"),
+             s.connected || s.busy === "check" ? (s.busy === "check" ? "unk" : "ok") : (s.busy === "connecting" ? "unk" : "bad"));
+    $("runcheck").textContent = s.busy === "check" ? "Running test…" : "Run test";
+    renderCheck(s.last_check);
+    setBadge("b-lock", s.lock ? "MOTION LOCKED" : "motion allowed", s.lock ? "bad" : "ok");
+    const lb = $("lockbar");
+    if (s.lock) { lb.style.display = "block"; lb.textContent = `MOTION LOCKED (${s.lock}). Press Re-arm to reconnect (no motion on connect), then Stand up if lying.`; }
+    else lb.style.display = "none";
+    $("blockbar").textContent = s.busy === "check" ? "Running a test on its own connection: sticks off. STOP still works. Re-arms automatically when done."
+      : s.drive_block && !s.lock ? `Sticks inactive: ${s.drive_block}`
+      : (s.connect_error ? (s.auto_connect ? `Waiting for the dog: plug in the Ethernet cable / turn the dog on. Connects automatically (checks every 3 s). Last error: ${s.connect_error}`
+                                           : `Connect error: ${s.connect_error}`) : "");
+    const sf = s.safety || {};
+    // Shows the dog adapter's REAL setting. null = unknown (connecting): treat as not-OK.
+    const known = s.safety_enabled === true || s.safety_enabled === false;
+    const on = s.safety_enabled === true;
+    $("safetyoff").style.display = known && !on ? "block" : "none";
+    $("safety").disabled = !known || S.role !== "control";
+    if (known && document.activeElement !== $("safety")) $("safety").checked = on;
+    const trip = sf.last_trip;
+    const tb = $("tripbar");
+    if (trip) { tb.style.display = "block"; tb.textContent = `SAFETY TRIP: ${trip.reason}. The dog lay down softly. Re-arm, then Stand up.`; }
+    else if (on && sf.state === "outside_fence") { tb.style.display = "block"; tb.textContent = "OUTSIDE THE FENCE: driving is refused. Press 'Set home here' to accept this spot as the new home."; }
+    else tb.style.display = "none";
+    const st = !known ? ["safety ?", "unk"] : !on ? ["SAFETY OFF", "bad"] : trip ? ["SAFETY TRIPPED", "bad"]
+      : sf.state === "ok" ? ["safety OK", "ok"] : sf.state === "outside_fence" ? ["OUTSIDE FENCE", "bad"] : ["safety ?", "unk"];
+    setBadge("b-safe", st[0], st[1]);
+    const sticksMode = s.drive_mode === "sticks";
+    setBadge("b-drive", sticksMode ? "drive: STICKS (remote path)" : "drive: Move", sticksMode ? "unk" : "");
+    if (document.activeElement !== $("drivemode")) $("drivemode").checked = sticksMode;
+    const lb2 = s.lidar_brake || "";
+    setBadge("b-brake", lb2 === "off" ? "LiDAR BRAKE OFF" : lb2.startsWith("braking") ? `LiDAR BRAKING: ${lb2}`
+             : lb2 === "ready" ? "LiDAR brake ready" : `LiDAR brake ${lb2 || "?"}`,
+             lb2 === "off" || lb2.startsWith("braking") ? "bad" : lb2 === "ready" ? "ok" : "unk");
+    if (document.activeElement !== $("lidarbrake") && typeof s.lidar_brake_enabled === "boolean") $("lidarbrake").checked = s.lidar_brake_enabled;
+    const envText = !on ? "OFF (no automatic stops)" : trip ? `TRIPPED: ${trip.reason}`
+      : sf.state === "outside_fence" ? "OUTSIDE FENCE (drive refused; Set home here)" : sf.state === "ok" ? "OK" : `unknown${sf.block ? ": " + sf.block : ""}`;
+    const dist = sf.distance_from_home_m === null || sf.distance_from_home_m === undefined ? "?" : sf.distance_from_home_m.toFixed(2);
+    const lim = sf.limits || {};
+    const tilt = sf.tilt_deg ? `${sf.tilt_deg.roll.toFixed(0)} / ${sf.tilt_deg.pitch.toFixed(0)} (max ${lim.max_tilt_deg})` : null;
+    const ls = s.last_stop;
+    $("latency").textContent = ls ? (ls.stop_latency_s === null ? `not stationary within 3 s (${ls.kind})`
+      : `${ls.stop_latency_s.toFixed(3)} s  (${ls.kind}, from ${ls.speed_at_stop ?? "?"} m/s)`) : "–";
+    const au = s.audio || {};
+    const rec = au.last_recording;
+    const rows = [
+      ["safety envelope", envText],
+      ["drive mode", s.drive_mode === "sticks" ? "sticks (remote-controller path)" : s.drive_mode === "move" ? "Move (api 1008)" : null],
+      ["LiDAR brake (0.5 m)", s.lidar_brake ?? null],
+      ["follow (demo)", s.follow ? `${s.follow.state}${s.follow.reason ? ": " + s.follow.reason : ""}` : null],
+      ["from home / radius m", `${dist} / ${sf.radius_m ?? "?"}`],
+      ["home (odom x, y)", sf.home], ["tilt roll / pitch °", tilt],
+      ["speed limit m/s", lim.max_speed_mps === undefined ? null : `${lim.max_speed_mps} (for ${lim.speed_sustain_s} s)`],
+      ["connected", s.connected], ["standing", s.standing], ["stationary", s.stationary],
+      ["avoidance (read-only)", s.avoidance], ["battery %", s.battery], ["body height m", s.body_height],
+      ["sport mode", s.mode], ["position m", s.position], ["speed m/s", s.speed], ["yaw speed rad/s", s.yaw_speed],
+      ["commanded vx, vy, yaw", s.commanded], ["moving (commanded)", s.moving],
+      ["last command age s", s.last_cmd_age_s], ["motion lock", s.lock || "none"], ["busy", s.busy || "–"],
+      ["resting", s.resting], ["head light", s.brightness === null ? null : `${s.brightness}/10`],
+      ["dead-man triggers", s.deadman_count], ["state / video age s", `${s.state_age_s ?? "?"} / ${s.frame_age_s ?? "?"}`],
+      ["speaker link", au.spk_direction ? `${au.spk_direction}, sent ${au.spk_sent_s} s` : "not used yet"],
+      ["mic format", au.mic_format || "–"],
+      ["last photo", s.last_photo || "–"],
+      ["last recording", rec ? `${rec.seconds} s, peak ${rec.peak_dbfs} dB: ${rec.path}` : "–"],
+    ];
+    $("status").innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${fmt(v)}</td></tr>`).join("");
+    if (!S.lightSynced && s.brightness !== null && s.brightness !== undefined) {
+      S.lightSynced = true;
+      $("light").checked = s.brightness > 0;
+      if (s.brightness > 0) { $("bright").value = s.brightness; $("brightval").textContent = s.brightness; }
+    }
+    // Last, and fenced off: a follow-panel error must never stop the lock / safety / trip banners above.
+    try { renderFollow(s); } catch (err) { console.error("follow panel", err); }
+  }
+  // ---------------------------------------------------------------- follow signal (demo)
+  // The point is simulated (odom frame); the server turns distance into a fake RSSI. Clicks on the
+  // LiDAR canvas are converted with the pose the LiDAR frame was drawn with (body: x fwd = up, y left).
+  const FW = { placing: false, hist: [], f: null };
+  const FOLLOW_ACTIVE = new Set(["following", "probing", "arrived"]);
+  const HIST_MS = 30000;
+  const esc = (v) => String(v).replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch]));
+  const followActive = () => !!(FW.f && FOLLOW_ACTIVE.has(FW.f.state));
+  function setPlacing(on) {
+    const changed = FW.placing !== !!on;
+    FW.placing = !!on;
+    const b = $("placept");
+    b.classList.toggle("on", FW.placing); b.setAttribute("aria-pressed", String(FW.placing));
+    b.textContent = FW.placing ? "Click the LiDAR panel…" : (FW.f && FW.f.beacon_xy ? "Move signal point" : "Place signal point");
+    $("lidarcanvas").classList.toggle("placing", FW.placing);
+    $("placehint").style.display = FW.placing ? "block" : "none";
+    if (changed) drawLidar();                 // show / hide the allowed area at once
+  }
+  function followButtons() {
+    if (S.role !== "control") return;
+    const f = FW.f, has = !!(f && f.beacon_xy), act = followActive();
+    $("followstart").disabled = act || !has;
+    $("followstop").disabled = !act;
+    $("clearpt").disabled = !has;
+  }
+  btn("placept", () => { if (S.role !== "control") { viewHint(); return; } setPlacing(!FW.placing); });
+  btn("clearpt", () => { setPlacing(false); send({ t: "beacon_clear" }); });
+  btn("followstart", () => { setPlacing(false); send({ t: "follow_start" }); });
+  btn("followstop", () => send({ t: "follow_stop", reason: "button" }));
+  // Follow dead-man: while following, tell the server this page is alive (it ends the run after 1 s of silence).
+  setInterval(() => { if (S.role === "control" && followActive()) send({ t: "follow_alive" }); }, 250);
+  function followLeave(why) {                 // leaving the tab ends following (server: StopMove, stays standing)
+    if (S.role === "control" && followActive()) send({ t: "follow_stop", reason: why });
+  }
+  $("lidarcanvas").addEventListener("click", (e) => {
+    if (!FW.placing) return;
+    if (S.role !== "control") { viewHint(); setPlacing(false); return; }
+    const pose = LID.view && !LID.lost ? LID.view.pose : null;
+    if (!pose) { addEvent("Signal point not placed: no live LiDAR / position yet", "warn"); return; }
+    const cv = e.currentTarget, r = cv.getBoundingClientRect();
+    const sc = Math.min(r.width / cv.width, r.height / cv.height);      // the canvas is drawn object-fit: contain
+    const px = (e.clientX - r.left - (r.width - cv.width * sc) / 2) / sc;
+    const py = (e.clientY - r.top - (r.height - cv.height * sc) / 2) / sc;
+    if (px < 0 || py < 0 || px > cv.width || py > cv.height) return;
+    const k = (cv.width / 2) / (LID.view.radius_m || 4.0);
+    const bx = (cv.height / 2 - py) / k, by = (cv.width / 2 - px) / k;   // body frame
+    const c = Math.cos(pose[2]), sn = Math.sin(pose[2]);
+    const x = pose[0] + bx * c - by * sn, y = pose[1] + bx * sn + by * c;
+    send({ t: "beacon_place", x: +x.toFixed(3), y: +y.toFixed(3) });
+    setPlacing(false);
+  });
+  function bodyOf(pose, x, y) {
+    const dx = x - pose[0], dy = y - pose[1], c = Math.cos(pose[2]), s = Math.sin(pose[2]);
+    return [c * dx + s * dy, -s * dx + c * dy];
+  }
+  function drawFollowOverlay(g, cx, cy, k, R) {
+    const f = FW.f, pose = (LID.view && LID.view.pose) || (S.status && S.status.pose);
+    if (!f || !pose) return;
+    const cv = g.canvas, rr = cv.getBoundingClientRect();      // canvas px per screen px: keep marks readable
+    const u = rr.width > 0 ? Math.max(1, Math.min(3, 1 / Math.min(rr.width / cv.width, rr.height / cv.height))) : 1;
+    g.save();
+    if (FW.placing && f.point_area) {         // where the server accepts a point: fence radius - 1.5 m around home
+      const [hx, hy] = bodyOf(pose, f.point_area.home[0], f.point_area.home[1]);
+      g.strokeStyle = "#ff4fd8"; g.globalAlpha = 0.8; g.lineWidth = 1.5 * u; g.setLineDash([8 * u, 6 * u]);
+      g.beginPath(); g.arc(cx - hy * k, cy - hx * k, f.point_area.max_m * k, 0, 2 * Math.PI); g.stroke();
+      g.setLineDash([]); g.globalAlpha = 0.08; g.fillStyle = "#ff4fd8"; g.fill(); g.globalAlpha = 1;
+    }
+    if (f.beacon_xy) {
+      let [bx, by] = bodyOf(pose, f.beacon_xy[0], f.beacon_xy[1]);
+      const d = Math.hypot(bx, by), off = d > R * 0.92;
+      if (off) { bx *= R * 0.9 / d; by *= R * 0.9 / d; }
+      const px = cx - by * k, py = cy - bx * k;
+      g.strokeStyle = g.fillStyle = "#ff4fd8"; g.lineWidth = 1.5 * u;
+      if (!off && f.arrive_dbm !== undefined) {   // where "arrived" starts (noise-free)
+        g.setLineDash([4 * u, 5 * u]); g.globalAlpha = 0.5;
+        g.beginPath(); g.arc(px, py, Math.pow(10, (-40 - f.arrive_dbm) / 25) * k, 0, 2 * Math.PI); g.stroke();
+        g.setLineDash([]);
+      }
+      for (const [rad, a] of [[7, 0.8], [11, 0.4]]) { g.globalAlpha = a; g.beginPath(); g.arc(px, py, rad * u, 0, 2 * Math.PI); g.stroke(); }
+      g.globalAlpha = 1; g.beginPath(); g.arc(px, py, 3.5 * u, 0, 2 * Math.PI); g.fill();
+      g.font = `bold ${11 * u}px sans-serif`; const right = px > cx + 60 * u;
+      g.textAlign = right ? "right" : "left";
+      g.lineWidth = 3 * u; g.strokeStyle = "#0b0e12";                 // dark halo: readable over points
+      const lab = off ? `simulated · ${d.toFixed(1)} m` : "simulated", lx = px + (right ? -14 : 14) * u, ly = py + 4 * u;
+      g.strokeText(lab, lx, ly); g.fillText(lab, lx, ly);
+    }
+    if (f.est_dir_rad !== null && f.est_dir_rad !== undefined && FOLLOW_ACTIVE.has(f.state)) {
+      const a = f.est_dir_rad - pose[2], L = Math.min(1.4, R * 0.45) * k;
+      const ex = cx - Math.sin(a) * L, ey = cy - Math.cos(a) * L, h = 7 * u, t = Math.atan2(ey - cy, ex - cx);
+      g.strokeStyle = g.fillStyle = "#ffe14d"; g.lineWidth = 2.5 * u; g.globalAlpha = 1;
+      g.beginPath(); g.moveTo(cx, cy); g.lineTo(ex, ey); g.stroke();
+      g.beginPath(); g.moveTo(ex, ey);
+      g.lineTo(ex - h * Math.cos(t - 0.45), ey - h * Math.sin(t - 0.45));
+      g.lineTo(ex - h * Math.cos(t + 0.45), ey - h * Math.sin(t + 0.45)); g.closePath(); g.fill();
+      g.font = `bold ${10 * u}px sans-serif`; g.textAlign = "center";
+      const tx = ex - Math.sin(a) * 12 * u, ty = ey - Math.cos(a) * 12 * u + 4 * u;
+      g.lineWidth = 3 * u; g.strokeStyle = "#0b0e12"; g.strokeText("est. signal", tx, ty); g.fillText("est. signal", tx, ty);
+    }
+    g.restore();
+  }
+  function drawSpark() {
+    const cv = $("spark"), g = cv.getContext("2d"), dpr = window.devicePixelRatio || 1;
+    const w = Math.max(60, Math.round(cv.clientWidth * dpr)), h = Math.max(30, Math.round(cv.clientHeight * dpr));
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const lo = -80, hi = -30, f = FW.f || {}, now = performance.now();
+    const yOf = (v) => h - (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * h;
+    const xOf = (t) => w - (now - t) / HIST_MS * w;
+    g.clearRect(0, 0, w, h); g.fillStyle = "#0b0e12"; g.fillRect(0, 0, w, h);
+    g.font = `${10 * dpr}px sans-serif`; g.lineWidth = dpr;
+    for (const [v, col, name] of [[f.arrive_dbm, "#3ccf6e", "arrive"], [f.resume_dbm, "#f0b429", "resume"]]) {
+      if (v === undefined || v === null) continue;
+      g.strokeStyle = g.fillStyle = col; g.globalAlpha = 0.6; g.setLineDash([3 * dpr, 4 * dpr]);
+      g.beginPath(); g.moveTo(0, yOf(v)); g.lineTo(w, yOf(v)); g.stroke(); g.setLineDash([]);
+      g.fillText(`${name} ${v}`, 3 * dpr, yOf(v) + (name === "arrive" ? -3 : 10) * dpr);
+    }
+    g.globalAlpha = 1; g.fillStyle = "#566070";
+    for (const p of FW.hist) if (p.r !== null) g.fillRect(xOf(p.t) - dpr, yOf(p.r) - dpr, 2 * dpr, 2 * dpr);
+    g.strokeStyle = "#4aa3ff"; g.lineWidth = 2 * dpr; g.beginPath(); let started = false;
+    for (const p of FW.hist) {
+      if (p.s === null || p.s === undefined) { started = false; continue; }
+      if (!started) { g.moveTo(xOf(p.t), yOf(p.s)); started = true; } else g.lineTo(xOf(p.t), yOf(p.s));
+    }
+    g.stroke();
+    g.fillStyle = "#8b95a3"; g.textAlign = "right"; g.fillText("30 s", w - 3 * dpr, h - 3 * dpr); g.textAlign = "left";
+  }
+  function renderFollow(s) {
+    const f = s.follow; FW.f = f || null;
+    if (!f) return;
+    const act = followActive(), now = performance.now();
+    if (f.rssi !== null && f.rssi !== undefined) FW.hist.push({ t: now, r: f.rssi, s: f.rssi_smoothed });
+    while (FW.hist.length && now - FW.hist[0].t > HIST_MS) FW.hist.shift();
+    $("rssi").innerHTML = `${f.rssi === null || f.rssi === undefined ? "&ndash;" : f.rssi.toFixed(0)} <span class="u">dBm</span>`;
+    $("rssis").textContent = !f.beacon_xy ? "no signal point"
+      : `smoothed ${f.rssi_smoothed === null || f.rssi_smoothed === undefined ? "–" : f.rssi_smoothed.toFixed(1)} · arrive ≥ ${f.arrive_dbm}`;
+    drawSpark();
+    const names = { idle: f.beacon_xy ? "ready" : "idle", following: "following", probing: "probing",
+                    arrived: "arrived (holding, standing)", stopped: "stopped" };
+    const timer = `${Math.floor(f.elapsed_s)} / ${f.limit_s} s`;
+    const why = f.reason ? ` · ${esc(f.reason)}` : (!f.beacon_xy ? " · no signal point (Place signal point)" : "");
+    $("followstate").innerHTML = `<b>${esc(names[f.state] || f.state)}</b>${why} · <span id="followtimer">${timer}</span>`;
+    $("followwarn").style.display = f.drive_mode === "move" ? "block" : "none";
+    const rf = $("followrefused");
+    rf.textContent = f.last_refusal ? f.last_refusal.reason : "";
+    rf.style.display = f.last_refusal ? "block" : "none";
+    const badge = act ? (f.state === "arrived" ? ["FOLLOW: ARRIVED", "ok"]
+                                               : [`FOLLOWING ${timer}${f.state === "probing" ? " (probing)" : ""}`, "follow"])
+      : f.state === "stopped" ? [`follow ended: ${f.reason || "?"}`, ""] : [f.beacon_xy ? "follow: point placed" : "follow: idle", ""];
+    setBadge("b-follow", badge[0], badge[1]);
+    if (S.role !== "control" && FW.placing) setPlacing(false); else setPlacing(FW.placing);
+    followButtons();
+    if (!LID.view || LID.lost) drawLidar();     // no live LiDAR frames: still show point + arrow
+  }
+
+  // ---------------------------------------------------------------- lidar (top-down, forward = up)
+  const LID = { view: null, rx: null, lost: false, noneSince: null, warnMs: 5000 };
+  const LIDAR_LYING = "LiDAR streams only while the dog is standing — press Stand up";
+  const LIDAR_LOST_MS = 1000;                 // no lidar message for this long => the picture is old
+  function lidarColor(zcm) {                  // low (floor) = blue, high = red
+    const t = Math.max(0, Math.min(1, zcm / 200));
+    return `hsl(${Math.round(220 - 220 * t)}, 90%, 55%)`;
+  }
+  function drawClearFan(g, cx, cy, k, R, v) {
+    // Free distance per direction (the follower's dodge input): one ray per 15 deg, from the dog
+    // to the first obstacle. Red = blocked within 0.8 m (the dodge avoids it), faint green = free.
+    // Drawn only while following, so manual driving keeps the plain point view.
+    const c = v && v.clear, on = FW.f && ["following", "probing", "arrived"].includes(FW.f.state);
+    if (!c || !Array.isArray(c.m) || !on || LID.lost) return;
+    const n = c.m.length, step = 2 * Math.PI / n;
+    g.save(); g.lineWidth = 2;
+    for (let i = 0; i < n; i++) {
+      const a = i * step, blocked = c.m[i] < 0.8;    // bins are measured from the body's edge
+      const edge = Math.min(0.35 / Math.max(1e-6, Math.abs(Math.cos(a))), 0.20 / Math.max(1e-6, Math.abs(Math.sin(a))));
+      const d = Math.min(c.m[i] + edge, R);
+      g.strokeStyle = blocked ? "rgba(255,80,80,0.85)" : "rgba(80,220,140,0.18)";
+      g.beginPath(); g.moveTo(cx, cy);
+      g.lineTo(cx - Math.sin(a) * d * k, cy - Math.cos(a) * d * k); g.stroke();
+    }
+    g.restore();
+  }
+  function drawLidar() {
+    const cv = $("lidarcanvas"), g = cv.getContext("2d");
+    const W = cv.width, H = cv.height, cx = W / 2, cy = H / 2;
+    const v = LID.view, R = (v && v.radius_m) || 4.0, k = (W / 2) / R;
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = "#0b0e12"; g.fillRect(0, 0, W, H);
+    g.strokeStyle = "#2c333d"; g.fillStyle = "#566070"; g.lineWidth = 1; g.font = "11px sans-serif";
+    for (let r = 1; r <= R; r++) {            // 1 m rings
+      g.beginPath(); g.arc(cx, cy, r * k, 0, 2 * Math.PI); g.stroke();
+      g.fillText(`${r} m`, cx + 3, cy - r * k + 11);
+    }
+    g.beginPath(); g.moveTo(cx, 0); g.lineTo(cx, H); g.moveTo(0, cy); g.lineTo(W, cy); g.stroke();
+    if (v && v.pts) {
+      const p = v.pts;
+      for (let i = 0; i + 2 < p.length; i += 3) {
+        const px = cx - (p[i + 1] / 100) * k;  // y is left: left of the dog is left on screen
+        const py = cy - (p[i] / 100) * k;      // x is forward: forward is up
+        if (px < 0 || py < 0 || px > W || py > H) continue;
+        g.fillStyle = LID.lost ? "#4a525e" : lidarColor(p[i + 2]); g.fillRect(px - 1, py - 1, 3, 3);
+      }
+    }
+    drawClearFan(g, cx, cy, k, R, v);
+    drawFollowOverlay(g, cx, cy, k, R);
+    g.fillStyle = "#e6e9ee";                  // the dog, pointing up
+    g.beginPath(); g.moveTo(cx, cy - 11); g.lineTo(cx + 7, cy + 8); g.lineTo(cx - 7, cy + 8); g.closePath(); g.fill();
+  }
+  function renderLidar(m) {
+    LID.view = m; LID.rx = performance.now(); LID.lost = false;   // age_s is the server's age at send time: track arrival here
+    const info = $("lidarinfo");
+    const age = m.age_s === null || m.age_s === undefined ? "?" : m.age_s.toFixed(1);
+    info.textContent = `LiDAR: ${m.n} pts · ${age} s old` + (m.reason ? ` · ${m.reason}` : "") + (m.stale ? " · STALE" : "");
+    info.classList.toggle("stale", !!m.stale);
+    $("lidarnear").textContent = "Nearest obstacle ahead: " +
+      (m.nearest_ahead_m === null || m.nearest_ahead_m === undefined ? "–" : `${m.nearest_ahead_m.toFixed(2)} m`);
+    drawLidar();
+  }
+  function lidarGoneCheck() {                 // pushes stopped (sensor error, reconnect, ws drop): never look live
+    if (LID.view === null || LID.rx === null) return;
+    const gap = performance.now() - LID.rx;
+    if (gap <= LIDAR_LOST_MS) return;
+    const info = $("lidarinfo");
+    info.textContent = `LiDAR: no updates for ${(gap / 1000).toFixed(1)} s`;
+    info.classList.add("stale");
+    $("lidarnear").textContent = "Nearest obstacle ahead: –";
+    if (!LID.lost) { LID.lost = true; drawLidar(); }      // grey the old points once
+  }
+  setInterval(lidarGoneCheck, 500);
+  function lidarReset(text) {
+    LID.view = null; LID.rx = null; LID.lost = false;
+    const info = $("lidarinfo"); info.textContent = text; info.classList.add("stale");
+    $("lidarnear").textContent = "Nearest obstacle ahead: –";
+    drawLidar();
+  }
+  function renderLidarWarn(s) {               // say what the dog's LiDAR is doing; blame the sensor only when nothing arrived at all
+    const L = s.lidar, w = $("lidarwarn");
+    if (L && L.enabled === false) {           // switched off by config: nothing to warn about, no button
+      LID.noneSince = null;
+      $("lidarinfo").textContent = "LiDAR disabled by config (lidar_enabled: false)";
+      $("lidarinfo").classList.remove("stale");
+      w.style.display = "none";
+      return;
+    }
+    const none = !!(s.connected && L && L.msgs === 0);
+    if (!none) LID.noneSince = null;
+    else if (LID.noneSince === null) LID.noneSince = Date.now();
+    const waited = none && Date.now() - LID.noneSince >= LID.warnMs;
+    const garbage = none && L.bad > 0;        // messages arrive but none decodes: the sensor is on
+    const unsub = !!(L && L.error && L.error.startsWith("LiDAR not subscribed"));   // our side never listened
+    const silent = none && !garbage && !unsub;   // nothing at all
+    const standing = s.standing === true;        // the LiDAR streams only while the dog is standing
+    const text = [];
+    if (garbage) text.push(`LiDAR messages arrive but can't be decoded (${L.bad})`);
+    else if (L && L.error) text.push(L.error);
+    if (silent && !standing) text.push(LIDAR_LYING);                        // lying: expected, no button
+    else if (silent && waited && s.standing === true) text.push("No LiDAR data, the sensor may be off.");
+    $("lidarwarntext").textContent = text.join(" · ");
+    $("lidaronrow").style.display = silent && waited && s.standing === true ? "" : "none";
+    w.style.display = text.length ? "block" : "none";
+  }
+  drawLidar();
+  function renderCheck(c) {
+    const box = $("checkresult");
+    if (!c) { box.textContent = "No test run yet."; return; }
+    const esc = (v) => String(v).replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch]));
+    const parts = [];
+    if (c.loopback_heard !== undefined) {
+      const r = c.loopback_tone_rise_db || {};
+      parts.push(`mic heard chime: ${c.loopback_heard ? "yes" : "NO"} (${Object.entries(r).map(([f, d]) => `${f} Hz +${d} dB`).join(", ")})`);
+    }
+    if (c.volume_set !== undefined) parts.push(`volume ${c.volume_before ?? "?"} → ${c.volume_set} → ${c.volume_restored ?? "?"}`);
+    if (c.battery !== undefined) parts.push(`battery ${c.battery} %`);
+    if (c.connect_s !== undefined) parts.push(`connect ${c.connect_s} s`);
+    if (c.note) parts.push(`note: ${c.note}`);
+    if (c.error) parts.push(`error: ${c.error}`);
+    if (c.recording || c.photo) parts.push(c.recording || c.photo);
+    box.innerHTML = `Last test: ${esc(c.step)} <span class="${c.ok ? "pass" : "fail"}">${c.ok ? "PASS" : "FAIL"}</span> · ${parts.map(esc).join(" · ")}`;
+  }
+  function addEvent(msg, level) {
+    const d = document.createElement("div");
+    d.className = level || "info";
+    d.textContent = `${new Date().toLocaleTimeString()}  ${msg}`;
+    const box = $("events"); box.prepend(d);
+    while (box.childNodes.length > 60) box.removeChild(box.lastChild);
+  }
+
+  updateSpeed();
+  updateRole();
+  connect();
+})();
+</script>
+</body>
+</html>

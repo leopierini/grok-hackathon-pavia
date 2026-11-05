@@ -1,0 +1,50 @@
+{
+  "protocol_version": "2.0-draft",
+  "message_id": "msg-dog-observation",
+  "mission_id": "demo-20261104-001",
+  "epoch": 1,
+  "seq": 2,
+  "sent_at": "2026-11-04T13:00:10.000Z",
+  "source": "dog",
+  "destination": "ground",
+  "kind": "dog.observation",
+  "correlation_id": null,
+  "expires_at": null,
+  "simulated": true,
+  "payload": {
+    "device_id": "dog-01",
+    "standing": true,
+    "stationary": true,
+    "avoidance_enabled": true,
+    "transport": "ethernet",
+    "pose": {
+      "frame_id": "museum/map",
+      "map_id": "museum-map-demo",
+      "map_epoch": 1,
+      "x_m": 0,
+      "y_m": 0,
+      "z_m": 0,
+      "yaw_rad": 0.0,
+      "observed_at": "2026-11-04T13:00:10.000Z",
+      "valid": true
+    },
+    "navigation_mode": "slam_local_planner",
+    "slam_state": "localized",
+    "lidar_observed_at": "2026-11-04T13:00:10.000Z",
+    "minimum_clearance_m": 0.8,
+    "frame": {
+      "frame_id": "dog-front-001",
+      "image_ref": "artifact://demo-20261104-001/dog/front-001.jpg",
+      "sha256": "3bf800f1a43b3aa52227cb6c50ec17102e7060678fd16fafd6331fce7d198b7c",
+      "captured_at": "2026-11-04T13:00:10.000Z",
+      "camera_id": "front",
+      "camera_epoch": 1,
+      "width_px": 1280,
+      "height_px": 720,
+      "camera_frame_id": "dog/camera_front",
+      "camera_to_body_calibration_id": "synthetic-calibration-v1",
+      "simulated": true
+    },
+    "active_command_id": null
+  }
+}

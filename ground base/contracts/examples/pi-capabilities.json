@@ -1,0 +1,35 @@
+{
+  "protocol_version": "2.0-draft",
+  "message_id": "msg-pi-capabilities",
+  "mission_id": "demo-20261104-001",
+  "epoch": 1,
+  "seq": 1,
+  "sent_at": "2026-11-04T13:00:00.000Z",
+  "source": "pi",
+  "destination": "ground",
+  "kind": "capabilities.report",
+  "correlation_id": null,
+  "expires_at": null,
+  "simulated": true,
+  "payload": {
+    "device_id": "pi-01",
+    "role": "pi",
+    "model": "Raspberry Pi (model unconfirmed)",
+    "software_version": "synthetic-test-v1",
+    "supported_commands": [
+      "read_window"
+    ],
+    "camera_ids": [],
+    "pose_frames": [],
+    "features": {
+      "controlled_motion": false,
+      "downward_video": false,
+      "rssi_receiver": true,
+      "lidar": false,
+      "slam": false,
+      "target_range": false
+    },
+    "validated": true,
+    "acceptance_evidence_ref": "artifact://synthetic-only/capability-test"
+  }
+}

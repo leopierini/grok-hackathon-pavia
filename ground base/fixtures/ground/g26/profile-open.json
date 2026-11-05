@@ -1,0 +1,6 @@
+{
+  "dog_range_max_m": 1.5,
+  "drone_horizontal_max_m": 1.5,
+  "operator_evidence": true,
+  "evidence_age_ms": 3000
+}
