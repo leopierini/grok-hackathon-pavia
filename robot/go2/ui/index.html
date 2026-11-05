@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Go2</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #141618;
+    --panel: #1c1f22;
+    --line: #34383c;
+    --text: #f2efe8;
+    --muted: #b7b2a8;
+    --ink: #16181a;
+    --paper: #f3efe6;
+    --stop: #a33b32;
+    --stop-text: #fff6f2;
+    --radius: 12px;
+    --font: "Avenir Next", "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100dvh; background: var(--bg); color: var(--text); font-family: var(--font); }
+  body { display: grid; grid-template-rows: auto 1fr; }
+  header { height: 64px; display: flex; align-items: center; padding: 0 24px; border-bottom: 1px solid var(--line); }
+  header strong { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.7fr);
+    gap: 20px;
+    padding: 20px;
+    max-width: 1180px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  canvas {
+    width: 100%;
+    height: min(72dvh, 720px);
+    background: var(--panel);
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    touch-action: none;
+    cursor: crosshair;
+  }
+  aside { display: flex; flex-direction: column; gap: 14px; }
+  button, input {
+    font: inherit;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+  }
+  button { cursor: pointer; }
+  button:active { transform: scale(0.98); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--paper); outline-offset: 2px; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  #stop {
+    background: var(--stop);
+    color: var(--stop-text);
+    border-color: transparent;
+    min-height: 64px;
+    font-size: 22px;
+    font-weight: 650;
+  }
+  #walk {
+    grid-column: 1 / -1;
+    background: var(--paper);
+    color: var(--ink);
+    border-color: transparent;
+    min-height: 52px;
+    font-size: 18px;
+    font-weight: 650;
+  }
+  .readout { font-family: var(--mono); font-size: 14px; line-height: 1.5; color: var(--text); margin: 0; }
+  .hint { color: var(--muted); font-size: 14px; line-height: 1.45; margin: 0; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+  input {
+    background: #26292c;
+    color: var(--text);
+    min-height: 44px;
+    padding: 0 12px;
+    font-family: var(--mono);
+  }
+  .presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .presets button, #follow {
+    background: transparent;
+    color: var(--text);
+    min-height: 42px;
+  }
+  #status { min-height: 2.8em; }
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; padding: 12px; }
+    canvas { height: 52dvh; }
+    aside { display: flex; }
+    #stop { order: -1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    button:active { transform: none; }
+  }
+</style>
+</head>
+<body>
+<header><strong>Go2</strong></header>
+<main>
+  <canvas id="map" width="800" height="800" aria-label="Map. Click to choose a goal."></canvas>
+  <aside>
+    <button id="stop" type="button">Stop</button>
+    <p class="readout" id="pose">Waiting for a pose.</p>
+    <p class="hint">Green dots are the current scan. Click the map, then walk. Meters are from where the stack started. +X was the dog's nose at that moment. Heading can drift: the IMU is not calibrated.</p>
+    <form id="goal">
+      <label>X meters<input id="x" name="x" type="number" step="0.1" value="1.0" inputmode="decimal"></label>
+      <label>Y meters<input id="y" name="y" type="number" step="0.1" value="0.0" inputmode="decimal"></label>
+      <button id="walk" type="submit">Walk there</button>
+    </form>
+    <div class="presets">
+      <button type="button" data-move="ahead">Ahead 1 m</button>
+      <button type="button" data-move="left">Left 1 m</button>
+      <button type="button" data-move="right">Right 1 m</button>
+      <button type="button" data-move="start">Back to start</button>
+    </div>
+    <button id="follow" type="button">Follow dog</button>
+    <p class="hint" id="status" role="status"></p>
+  </aside>
+</main>
+<script>
+const canvas = document.getElementById("map");
+const ctx = canvas.getContext("2d");
+const poseEl = document.getElementById("pose");
+const statusEl = document.getElementById("status");
+const xIn = document.getElementById("x");
+const yIn = document.getElementById("y");
+const walkBtn = document.getElementById("walk");
+let pose = null;
+let ppm = 52;
+let camX = 0;
+let camY = 0;
+let follow = true;
+let armedKey = null;
+let dragging = false;
+let dragLast = null;
+
+function resize() {
+  const r = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.round(r.width * dpr));
+  canvas.height = Math.max(1, Math.round(r.height * dpr));
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+window.addEventListener("resize", resize);
+
+function goal() {
+  const x = Number(xIn.value);
+  const y = Number(yIn.value);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x, y };
+}
+
+function setGoal(x, y) {
+  xIn.value = (Math.round(x * 10) / 10).toFixed(1);
+  yIn.value = (Math.round(y * 10) / 10).toFixed(1);
+  armedKey = null;
+  labelWalk();
+  draw();
+}
+
+function dist() {
+  const g = goal();
+  if (!g || !pose) return null;
+  return Math.hypot(g.x - pose.x, g.y - pose.y);
+}
+
+function reach() {
+  const g = goal();
+  if (!g) return null;
+  if (pose) return Math.hypot(g.x - pose.x, g.y - pose.y);
+  return Math.hypot(g.x, g.y);
+}
+
+function labelWalk() {
+  const d = reach();
+  if (armedKey && d != null) {
+    walkBtn.textContent = "Confirm " + d.toFixed(1) + " m";
+    return;
+  }
+  walkBtn.textContent = d == null ? "Walk there" : "Walk " + d.toFixed(1) + " m";
+}
+
+function screenSize() {
+  return canvas.getBoundingClientRect();
+}
+
+function toMap(clientX, clientY) {
+  const r = screenSize();
+  return {
+    x: (clientX - r.left - r.width / 2) / ppm + camX,
+    y: camY - (clientY - r.top - r.height / 2) / ppm,
+  };
+}
+
+function draw() {
+  const r = screenSize();
+  const w = r.width;
+  const h = r.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#1c1f22";
+  ctx.fillRect(0, 0, w, h);
+  const left = camX - w / 2 / ppm;
+  const right = camX + w / 2 / ppm;
+  const bottom = camY - h / 2 / ppm;
+  const top = camY + h / 2 / ppm;
+  ctx.strokeStyle = "#2e3236";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let m = Math.floor(left); m <= right; m++) {
+    const sx = w / 2 + (m - camX) * ppm;
+    ctx.moveTo(sx, 0);
+    ctx.lineTo(sx, h);
+  }
+  for (let m = Math.floor(bottom); m <= top; m++) {
+    const sy = h / 2 - (m - camY) * ppm;
+    ctx.moveTo(0, sy);
+    ctx.lineTo(w, sy);
+  }
+  ctx.stroke();
+  if (pose && pose.pts) {
+    ctx.fillStyle = "#9aa58a";
+    for (const p of pose.pts) {
+      ctx.fillRect(w / 2 + (p[0] - camX) * ppm, h / 2 - (p[1] - camY) * ppm, 3, 3);
+    }
+  }
+  const ox = w / 2 + (0 - camX) * ppm;
+  const oy = h / 2 - (0 - camY) * ppm;
+  ctx.strokeStyle = "#8d887e";
+  ctx.beginPath();
+  ctx.moveTo(ox - 8, oy);
+  ctx.lineTo(ox + 8, oy);
+  ctx.moveTo(ox, oy - 8);
+  ctx.lineTo(ox, oy + 8);
+  ctx.stroke();
+  const g = goal();
+  if (pose && g) {
+    ctx.strokeStyle = "#f3efe6";
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(w / 2 + (pose.x - camX) * ppm, h / 2 - (pose.y - camY) * ppm);
+    ctx.lineTo(w / 2 + (g.x - camX) * ppm, h / 2 - (g.y - camY) * ppm);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  if (g) {
+    const gx = w / 2 + (g.x - camX) * ppm;
+    const gy = h / 2 - (g.y - camY) * ppm;
+    ctx.fillStyle = "#f3efe6";
+    ctx.beginPath();
+    ctx.arc(gx, gy, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (pose) {
+    const dx = w / 2 + (pose.x - camX) * ppm;
+    const dy = h / 2 - (pose.y - camY) * ppm;
+    ctx.save();
+    ctx.translate(dx, dy);
+    ctx.rotate(-pose.yaw);
+    ctx.fillStyle = "#a33b32";
+    ctx.beginPath();
+    ctx.moveTo(12, 0);
+    ctx.lineTo(-8, 7);
+    ctx.lineTo(-8, -7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+canvas.addEventListener("pointerdown", (ev) => {
+  dragging = true;
+  dragLast = { x: ev.clientX, y: ev.clientY, moved: false };
+  canvas.setPointerCapture(ev.pointerId);
+});
+canvas.addEventListener("pointermove", (ev) => {
+  if (!dragging || !dragLast) return;
+  const dx = ev.clientX - dragLast.x;
+  const dy = ev.clientY - dragLast.y;
+  if (dx * dx + dy * dy > 16) dragLast.moved = true;
+  camX -= dx / ppm;
+  camY += dy / ppm;
+  dragLast.x = ev.clientX;
+  dragLast.y = ev.clientY;
+  follow = false;
+  draw();
+});
+canvas.addEventListener("pointerup", (ev) => {
+  const moved = dragLast && dragLast.moved;
+  dragging = false;
+  dragLast = null;
+  if (moved) return;
+  const p = toMap(ev.clientX, ev.clientY);
+  setGoal(p.x, p.y);
+});
+canvas.addEventListener("wheel", (ev) => {
+  ev.preventDefault();
+  ppm = Math.min(140, Math.max(18, ppm * (ev.deltaY > 0 ? 0.9 : 1.1)));
+  draw();
+}, { passive: false });
+
+document.getElementById("follow").addEventListener("click", () => {
+  follow = true;
+  if (pose) { camX = pose.x; camY = pose.y; }
+  draw();
+});
+
+document.querySelectorAll("[data-move]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const kind = btn.dataset.move;
+    if (kind === "start") { setGoal(0, 0); return; }
+    if (!pose) { statusEl.textContent = "No pose yet, so ahead and left need the dog on the map."; return; }
+    const yaw = pose.yaw + (kind === "left" ? Math.PI / 2 : kind === "right" ? -Math.PI / 2 : 0);
+    setGoal(pose.x + Math.cos(yaw), pose.y + Math.sin(yaw));
+  });
+});
+
+xIn.addEventListener("input", () => { armedKey = null; labelWalk(); draw(); });
+yIn.addEventListener("input", () => { armedKey = null; labelWalk(); draw(); });
+
+async function post(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : "{}",
+  });
+  const data = await res.json();
+  if (!res.ok || !data.ok) throw new Error(data.error || "command failed");
+  return data;
+}
+
+document.getElementById("stop").addEventListener("click", async () => {
+  statusEl.textContent = "Sending stop.";
+  try {
+    await post("/api/stop");
+    statusEl.textContent = "Stop sent. Autonomy is off.";
+  } catch (err) {
+    statusEl.textContent = err.message;
+  }
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.key === "Escape") document.getElementById("stop").click();
+});
+
+document.getElementById("goal").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const g = goal();
+  if (!g) { statusEl.textContent = "Enter a number for X and Y."; return; }
+  const d = reach();
+  const key = g.x.toFixed(2) + "," + g.y.toFixed(2);
+  if (d != null && d > 3 && armedKey !== key) {
+    armedKey = key;
+    labelWalk();
+    statusEl.textContent = "That is " + d.toFixed(1) + " m away. Press the button again to send it.";
+    return;
+  }
+  armedKey = null;
+  walkBtn.disabled = true;
+  statusEl.textContent = "Sending the goal. The dog will walk.";
+  try {
+    await post("/api/goal", g);
+    statusEl.textContent = "Goal sent. The dog is walking to " + g.x.toFixed(1) + ", " + g.y.toFixed(1) + ".";
+  } catch (err) {
+    statusEl.textContent = err.message;
+  } finally {
+    walkBtn.disabled = false;
+    labelWalk();
+  }
+});
+
+async function poll() {
+  try {
+    const res = await fetch("/api/pose");
+    const data = await res.json();
+    if (data.ok && data.age < 2) {
+      pose = data;
+      poseEl.textContent = "Dog at " + data.x.toFixed(2) + ", " + data.y.toFixed(2) + " m, heading " + Math.round(data.yaw * 180 / Math.PI) + " deg.";
+      if (follow && !dragging) { camX = data.x; camY = data.y; }
+    } else {
+      pose = data.ok ? data : null;
+      poseEl.textContent = "No fresh pose. You can still type a point.";
+    }
+  } catch (err) {
+    poseEl.textContent = "Pose link is down.";
+  }
+  labelWalk();
+  draw();
+}
+resize();
+poll();
+setInterval(poll, 400);
+</script>
+</body>
+</html>

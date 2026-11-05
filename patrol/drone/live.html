@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recon</title>
+  <style>
+    :root {
+      --ink: #1c1915;
+      --muted: #6f675c;
+      --paper: #f4f0e7;
+      --card: #fffdf8;
+      --line: #d9d1c3;
+      --mark: #b8431f;
+      --mono: ui-monospace, "SF Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      display: grid;
+      grid-template-columns: 168px 1fr;
+      min-height: 100dvh;
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+    }
+    nav {
+      padding: 22px 0;
+      border-right: 1px solid var(--line);
+    }
+    nav button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: none;
+      border-left: 3px solid transparent;
+      padding: 12px 16px;
+      font-size: 16px;
+    }
+    nav button.on { border-left-color: var(--mark); color: var(--mark); }
+    .screen { min-width: 0; }
+    body.photos #view-fly { display: none; }
+    #view-photos { display: none; }
+    body.photos #view-photos { display: block; }
+    pre.log {
+      margin: 12px 28px 28px;
+      max-height: 180px;
+      overflow: auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 24px;
+      padding: 22px 28px 8px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+    }
+    .meta, .error {
+      margin: 0;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+    .error { color: var(--mark); min-height: 1em; }
+    .console {
+      display: grid;
+      gap: 14px;
+      margin: 8px 28px 0;
+      padding: 16px;
+      background: var(--card);
+      border: 1px solid var(--line);
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    button {
+      font: inherit;
+      color: var(--ink);
+      background: var(--paper);
+      border: 1px solid var(--line);
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled { opacity: 0.4; cursor: default; }
+    button.land {
+      margin-left: auto;
+      background: var(--mark);
+      color: #fffdf8;
+      border: none;
+      font-size: 18px;
+      padding: 12px 22px;
+    }
+    .fields { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: end; }
+    .fields .gap { flex-basis: 100%; height: 0; }
+    label {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    input, select {
+      font: inherit;
+      font-size: 15px;
+      color: var(--ink);
+      background: var(--paper);
+      border: 1px solid var(--line);
+      padding: 6px 8px;
+      width: 7rem;
+    }
+    input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--mark); outline-offset: 1px; }
+    label.check { display: flex; gap: 6px; align-items: center; font-size: 14px; color: var(--ink); }
+    label.check input { width: auto; }
+
+    .live {
+      display: grid;
+      grid-template-columns: minmax(200px, 1.1fr) 1fr 1fr;
+      gap: 0;
+      margin: 12px 28px 0;
+      background: var(--card);
+      border: 1px solid var(--line);
+    }
+    .live > div { padding: 14px 16px; min-width: 0; }
+    .live > div + div { border-left: 1px solid var(--line); }
+    .live h3 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
+    .ahead { font-family: var(--mono); font-size: 56px; line-height: 1; letter-spacing: -0.04em; }
+    .ahead small { font-size: 18px; color: var(--muted); margin-left: 4px; }
+    .ahead.near { color: var(--mark); }
+    .mode { margin-top: 8px; font-size: 18px; font-weight: 600; }
+    .reason { color: var(--muted); font-size: 14px; }
+    dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 14px; margin: 0; font-size: 14px; }
+    dt { color: var(--muted); }
+    dd { margin: 0; font-family: var(--mono); text-align: right; }
+    dd.warn { color: var(--mark); }
+    .empty { color: var(--muted); font-size: 14px; }
+
+    .person {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 16px;
+      margin: 12px 28px 0;
+      padding: 14px 16px;
+      background: var(--card);
+      border: 3px solid var(--mark);
+    }
+    .person[hidden] { display: none; }
+    .person img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #e7e1d5; display: block; }
+    .person p { margin: 0 0 6px; }
+    .person .title { font-size: 20px; font-weight: 600; color: var(--mark); }
+
+    main { padding: 8px 28px 40px; }
+    h2 {
+      margin: 22px 0 8px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    details {
+      background: var(--card);
+      border: 1px solid var(--line);
+      margin-bottom: 8px;
+    }
+    details.picked { border: 3px solid var(--mark); }
+    summary {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 8px 12px;
+      cursor: pointer;
+      list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary .thumb {
+      width: 72px;
+      height: 54px;
+      object-fit: cover;
+      background: #e7e1d5;
+      flex: none;
+    }
+    summary .label { font-size: 16px; font-weight: 600; }
+    summary .score {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 13px;
+      text-align: right;
+    }
+    .stay { color: var(--muted); }
+    .go { color: var(--mark); }
+    .shots { padding: 0 12px 14px; }
+    img.shot {
+      width: 100%;
+      max-width: 640px;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      background: #e7e1d5;
+      display: block;
+    }
+    .missing {
+      display: grid;
+      place-items: center;
+      max-width: 640px;
+      aspect-ratio: 4 / 3;
+      background: #e7e1d5;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 900px) {
+      .live { grid-template-columns: 1fr; }
+      .live > div + div { border-left: none; border-top: 1px solid var(--line); }
+      .person { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 800px) {
+      body { grid-template-columns: 1fr; }
+      nav { display: flex; padding: 0; border-right: none; border-bottom: 1px solid var(--line); }
+      nav button { border-left: none; border-bottom: 3px solid transparent; }
+      nav button.on { border-bottom-color: var(--mark); }
+      header, main, .console, .live, .person, pre.log { margin-left: 16px; margin-right: 16px; }
+      button.land { margin-left: 0; }
+    }
+    .ask {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(28, 25, 21, 0.28);
+    }
+    .ask[hidden] { display: none; }
+    .ask > div {
+      min-width: 280px;
+      padding: 18px;
+      background: var(--card);
+      border: 1px solid var(--line);
+    }
+    .ask p { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
+    .ask .sub { margin: 0 0 14px; font-size: 14px; font-weight: 400; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <nav>
+    <button type="button" id="nav-fly" class="on">Volo</button>
+    <button type="button" id="nav-photos">Foto</button>
+  </nav>
+  <div class="screen">
+  <div id="view-fly">
+  <header>
+    <h1 id="phase">waiting</h1>
+    <p class="meta" id="meta"></p>
+  </header>
+  <section class="console">
+    <div class="actions">
+      <button type="button" id="takeoff">Take off</button>
+      <button type="button" id="patrol">Patrol</button>
+      <button type="button" id="hover">Ferma</button>
+      <button type="button" id="land" class="land">Land</button>
+    </div>
+    <div class="fields">
+      <label for="brain">Brain
+        <select id="brain">
+          <option value="local">Local + reflex</option>
+          <option value="jev">Jev online + reflex</option>
+          <option value="reflex-only">Reflex only (0.2 m/s)</option>
+        </select>
+      </label>
+      <label for="cruise">Cruise m/s<input id="cruise" type="number" min="0.1" max="0.8" step="0.05" value="0.2" /></label>
+      <label for="brake">Brake at m<input id="brake" type="number" min="0.6" max="2.5" step="0.1" value="1.0" /></label>
+      <label for="geofence">Geofence m<input id="geofence" type="number" min="1" max="15" step="0.5" value="4" /></label>
+      <label for="height">Height cm<input id="height" type="number" min="40" max="300" value="100" /></label>
+      <span class="gap"></span>
+      <label for="stick">Stick<input id="stick" type="number" min="10" max="50" value="25" /></label>
+      <label for="speed">Stick speed m/s<input id="speed" type="number" min="0.1" max="1.5" step="0.05" value="0.4" /></label>
+      <label class="check"><input id="stop-person" type="checkbox" checked />Stop on person</label>
+      <label class="check"><input id="down-photo" type="checkbox" />Floor photo</label>
+      <label class="check"><input id="pad" type="checkbox" />Look for the pad and land</label>
+      <label for="pad-id">Pad id
+        <select id="pad-id">
+          <option value="any">any</option>
+          <option>m1</option><option>m2</option><option>m3</option><option>m4</option>
+          <option>m5</option><option>m6</option><option>m7</option><option>m8</option>
+        </select>
+      </label>
+    </div>
+    <p class="error" id="error"></p>
+  </section>
+  <section class="person" id="person" hidden>
+    <img id="person-img" alt="Person found by the drone" />
+    <div>
+      <p class="title">Person in view</p>
+      <p id="person-where"></p>
+      <p class="reason">It goes to the person and stays above them. You land it.</p>
+    </div>
+  </section>
+  <section class="live" id="live">
+    <div>
+      <h3>Reflex ahead</h3>
+      <div class="ahead" id="ahead">-<small>m</small></div>
+      <div class="mode" id="mode">idle</div>
+      <div class="reason" id="reason">no flight running</div>
+    </div>
+    <div>
+      <h3 id="judge">Judge</h3>
+      <dl id="jev"></dl>
+    </div>
+    <div>
+      <h3>Motion</h3>
+      <dl id="motion"></dl>
+    </div>
+  </section>
+  <pre id="log" class="log"></pre>
+  </div>
+  <div id="view-photos">
+  <main id="stops"></main>
+  </div>
+  </div>
+  <div id="ask" class="ask" hidden>
+    <div>
+      <p>How long to explore?</p>
+      <p class="sub">It stays up when time runs out. You land it.</p>
+      <div class="actions">
+        <button type="button" data-seconds="30">30 s</button>
+        <button type="button" data-seconds="60">60 s</button>
+        <button type="button" data-seconds="120">2 min</button>
+        <button type="button" id="ask-cancel">Annulla</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const stops = document.getElementById("stops");
+    const busy = ["connecting", "taking off", "settling", "loading model", "exploring", "hold", "scan", "scanning", "landing"];
+    const fields = {
+      brain: ["brain", String],
+      cruise: ["cruise_mps", Number],
+      brake: ["brake_m", Number],
+      geofence: ["geofence_m", Number],
+      height: ["height_cm", Number],
+      stick: ["stick", Number],
+      speed: ["speed_mps", Number],
+      "pad-id": ["pad_id", String],
+    };
+    const checks = { "stop-person": "stop_on_person", "down-photo": "down_photo", pad: "pad" };
+    let currentRun = "";
+    let filled = false;
+
+    function frameURL(file) {
+      if (!file || !currentRun) return "";
+      return "/frames/" + currentRun + "/" + file;
+    }
+
+    async function send(action, extra) {
+      const error = document.getElementById("error");
+      try {
+        const response = await fetch("/cmd", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Object.assign({ action: action }, extra || {})),
+        });
+        const body = await response.json();
+        error.textContent = body.ok ? "" : (body.error || "refused");
+      } catch (err) {
+        error.textContent = "no link to the console";
+      }
+    }
+
+    function pushSettings() {
+      const body = {};
+      for (const [id, [key, cast]] of Object.entries(fields)) body[key] = cast(document.getElementById(id).value);
+      for (const [id, key] of Object.entries(checks)) body[key] = document.getElementById(id).checked;
+      send("set", body);
+    }
+
+    function fillSettings(state) {
+      if (filled || !state || state.brain == null) return;
+      filled = true;
+      for (const [id, [key]] of Object.entries(fields)) {
+        if (state[key] != null) document.getElementById(id).value = state[key];
+      }
+      for (const [id, key] of Object.entries(checks)) {
+        if (state[key] != null) document.getElementById(id).checked = !!state[key];
+      }
+    }
+
+    const ask = document.getElementById("ask");
+    document.getElementById("nav-fly").onclick = function () {
+      document.body.classList.remove("photos");
+      this.classList.add("on");
+      document.getElementById("nav-photos").classList.remove("on");
+    };
+    document.getElementById("nav-photos").onclick = function () {
+      document.body.classList.add("photos");
+      this.classList.add("on");
+      document.getElementById("nav-fly").classList.remove("on");
+    };
+    document.getElementById("takeoff").onclick = function () { send("takeoff"); };
+    document.getElementById("patrol").onclick = function () { ask.hidden = false; };
+    ask.querySelectorAll("[data-seconds]").forEach(function (button) {
+      button.onclick = function () {
+        ask.hidden = true;
+        send("patrol", { explore_s: Number(button.getAttribute("data-seconds")) });
+      };
+    });
+    document.getElementById("ask-cancel").onclick = function () { ask.hidden = true; };
+    document.getElementById("hover").onclick = function () { send("hover"); };
+    document.getElementById("land").onclick = function () { send("land"); };
+    for (const id of [...Object.keys(fields), ...Object.keys(checks)]) {
+      document.getElementById(id).addEventListener("change", pushSettings);
+    }
+
+    function num(value, digits, unit) {
+      if (value == null) return "-";
+      return Number(value).toFixed(digits) + (unit || "");
+    }
+
+    function rows(target, items) {
+      const node = document.getElementById(target);
+      node.replaceChildren();
+      for (const [name, value, warn] of items) {
+        const dt = document.createElement("dt");
+        dt.textContent = name;
+        const dd = document.createElement("dd");
+        dd.textContent = value;
+        if (warn) dd.className = "warn";
+        node.append(dt, dd);
+      }
+    }
+
+    function paintLive(state) {
+      const live = state.live;
+      const ahead = document.getElementById("ahead");
+      if (!live) {
+        ahead.firstChild.textContent = "-";
+        ahead.className = "ahead";
+        document.getElementById("mode").textContent = "idle";
+        document.getElementById("reason").textContent = "no flight running";
+        rows("jev", [["brain", state.brain || "-"]]);
+        rows("motion", []);
+        return;
+      }
+      ahead.firstChild.textContent = live.ahead_m == null ? "-" : live.ahead_m.toFixed(2);
+      ahead.className = "ahead" + (live.ahead_m != null && live.ahead_m < (state.brake_m || 1) ? " near" : "");
+      document.getElementById("mode").textContent = live.mode;
+      document.getElementById("reason").textContent = live.reason || "";
+      document.getElementById("judge").textContent = live.brain === "local" ? "Local judge" : live.brain === "jev" ? "Jev" : "Judge";
+      if (live.brain !== "reflex-only") {
+        const stale = live.jev_age_s != null && live.jev_age_s > 1.5;
+        rows("jev", [
+          [live.brain === "local" ? "glass ahead" : "blocked", num(live.blocked, 2), live.blocked != null && live.blocked >= 0.5],
+          ["steer", live.brain === "local" ? "from reflex" : live.steer || "-"],
+          ["person", num(live.person, 2), live.person != null && live.person >= 0.6],
+          ["latency", num(live.jev_ms, 0, " ms")],
+          ["answer age", num(live.jev_age_s, 1, " s"), stale],
+          ["error", live.jev_error || "none", !!live.jev_error],
+        ]);
+      } else {
+        rows("jev", [["brain", "reflex only"], ["speed cap", "0.2 m/s"]]);
+      }
+      rows("motion", [
+        ["forward", num(live.fb_mps, 2, " m/s")],
+        ["yaw", num(live.yaw_dps, 0, " °/s")],
+        ["near", num(live.near_m, 2, " m")],
+        ["sides", num(live.left_m, 1) + " / " + num(live.right_m, 1) + " m"],
+        ["reflex", num(live.reflex_ms, 0, " ms")],
+        ["reflex age", num(live.reflex_age_s, 2, " s"), live.reflex_age_s != null && live.reflex_age_s > 0.5],
+        ["position", num(live.x, 1) + ", " + num(live.y, 1) + " m"],
+        ["heading", num(live.heading, 0, "°")],
+        ["scans", String(live.scans == null ? 0 : live.scans)],
+      ]);
+    }
+
+    function paintPerson(state) {
+      const card = document.getElementById("person");
+      const found = state.person;
+      card.hidden = !found;
+      if (!found) return;
+      const img = document.getElementById("person-img");
+      const url = frameURL(found.file);
+      if (url && img.getAttribute("src") !== url) img.src = url;
+      img.hidden = !url;
+      const score = found.person == null ? "" : ", Jev " + found.person.toFixed(2);
+      document.getElementById("person-where").textContent =
+        "x " + num(found.x, 1) + " m, y " + num(found.y, 1) + " m, heading " + num(found.heading, 0, "°") + score;
+    }
+
+    function verdict(frame) {
+      const bits = ["reflex " + num(frame.reflex_m, 2, " m")];
+      if (frame.blocked != null) {
+        bits.push("judge blocked " + num(frame.blocked, 2));
+        bits.push("room " + num(frame.room_m, 1, " m"));
+        if (frame.person != null && frame.person >= 0.3) bits.push("person " + num(frame.person, 2));
+      }
+      let tail = frame.why ? "no: " + frame.why : "ok";
+      if (frame.picked) tail = frame.jev_pick ? "picked by Jev" : "picked";
+      return bits.join(", ") + "  |  " + tail;
+    }
+
+    function stopPanel(frame) {
+      const details = document.createElement("details");
+      details.dataset.key = frame.step + "-" + frame.heading;
+      if (frame.picked) {
+        details.className = "picked";
+        details.open = true;
+      }
+      const summary = document.createElement("summary");
+      const thumbURL = frameURL(frame.file);
+      if (thumbURL) {
+        const thumb = document.createElement("img");
+        thumb.className = "thumb";
+        thumb.src = thumbURL;
+        thumb.alt = "";
+        summary.appendChild(thumb);
+      }
+      const label = document.createElement("span");
+      label.className = "label";
+      label.textContent = frame.heading + "°" + (frame.height_cm != null ? ", " + frame.height_cm + " cm" : "");
+      const score = document.createElement("span");
+      score.className = "score " + (frame.picked ? "go" : frame.why ? "stay" : "");
+      score.textContent = verdict(frame);
+      summary.append(label, score);
+      details.appendChild(summary);
+      const shots = document.createElement("div");
+      shots.className = "shots";
+      if (thumbURL) {
+        const img = document.createElement("img");
+        img.className = "shot";
+        img.src = thumbURL;
+        img.alt = "View at " + frame.heading + "°";
+        shots.appendChild(img);
+      } else {
+        const empty = document.createElement("div");
+        empty.className = "missing";
+        empty.textContent = "not captured";
+        shots.appendChild(empty);
+      }
+      details.appendChild(shots);
+      return details;
+    }
+
+    function paintPhotos(state) {
+      const signature = currentRun + "|" + JSON.stringify(state.frames || []);
+      if (paintPhotos.last === signature) return;
+      paintPhotos.last = signature;
+      const openKeys = new Set([...stops.querySelectorAll("details[open]")].map((node) => node.dataset.key));
+      stops.replaceChildren();
+      const scans = new Map();
+      for (const frame of state.frames || []) {
+        if (!scans.has(frame.step)) scans.set(frame.step, []);
+        scans.get(frame.step).push(frame);
+      }
+      if (!scans.size) {
+        const empty = document.createElement("p");
+        empty.className = "empty";
+        empty.textContent = "No scans yet. The drone takes four photos each time its path is blocked.";
+        stops.appendChild(empty);
+        return;
+      }
+      for (const [step, frames] of [...scans.entries()].reverse()) {
+        const title = document.createElement("h2");
+        title.textContent = "Scan " + (step + 1);
+        stops.appendChild(title);
+        for (const frame of frames) {
+          const panel = stopPanel(frame);
+          if (openKeys.has(panel.dataset.key)) panel.open = true;
+          stops.appendChild(panel);
+        }
+      }
+    }
+
+    function paint(state) {
+      const phase = state.phase || "waiting";
+      document.getElementById("phase").textContent = phase;
+      fillSettings(state);
+      const log = document.getElementById("log");
+      const lines = (state.log || []).join("\n");
+      if (log.textContent !== lines) {
+        log.textContent = lines;
+        log.scrollTop = log.scrollHeight;
+      }
+      const working = busy.indexOf(phase) !== -1;
+      const unsure = phase === "failed" || phase === "hovering" || phase === "person";
+      document.getElementById("takeoff").disabled = working || (!!state.airborne && !unsure);
+      document.getElementById("patrol").disabled = working;
+      document.getElementById("hover").disabled = !working && !state.airborne;
+      const bits = [];
+      if (state.battery != null) bits.push("battery " + state.battery + "%");
+      if (state.height_cm_now != null) bits.push(state.height_cm_now + " cm");
+      if (state.mid > 0) bits.push("pad m" + state.mid + " at " + state.pad_x + ", " + state.pad_y);
+      else if (state.pad) bits.push("no pad");
+      if (state.note) bits.push(state.note);
+      if (state.reply) bits.push(state.reply);
+      document.getElementById("meta").textContent = bits.join("  |  ");
+      currentRun = state.run_id || "";
+      paintLive(state);
+      paintPerson(state);
+      paintPhotos(state);
+    }
+
+    async function tick() {
+      try {
+        paint(await fetch("/state.json?t=" + Date.now()).then((r) => r.json()));
+      } catch (err) {
+        document.getElementById("phase").textContent = "no flight yet";
+      }
+    }
+    tick();
+    setInterval(tick, 250);
+  </script>
+</body>
+</html>

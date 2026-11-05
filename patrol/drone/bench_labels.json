@@ -1,0 +1,19 @@
+{
+  "about": "Hand labels for photos from the 4 Nov flights. meters is the rough distance to the nearest solid thing in the middle third at camera height, judged from known object sizes in the frame. blocked means under 1.5 m.",
+  "photos": [
+    {"run": "2026-11-04T163732Z", "file": "step0-h000.jpg", "height_cm": 218, "meters": 3.0, "blocked": false, "note": "Lotus below the camera, open room beyond"},
+    {"run": "2026-11-04T163732Z", "file": "step0-h090.jpg", "height_cm": 212, "meters": 3.0, "blocked": false, "note": "box stack on the right edge, F1 car and wall in the middle"},
+    {"run": "2026-11-04T163732Z", "file": "step0-h180.jpg", "height_cm": 215, "meters": 2.5, "blocked": false, "note": "machines and window wall"},
+    {"run": "2026-11-04T163732Z", "file": "step0-h270.jpg", "height_cm": 218, "meters": 1.8, "blocked": false, "note": "cabinet top and wall"},
+    {"run": "2026-11-04T163732Z", "file": "step1-h000.jpg", "height_cm": 216, "meters": 2.0, "blocked": false, "note": "Lotus roof below the camera"},
+    {"run": "2026-11-04T163732Z", "file": "step1-h090.jpg", "height_cm": 218, "meters": 2.0, "blocked": false, "note": "pillar about 2 m out, person leaning on it"},
+    {"run": "2026-11-04T163732Z", "file": "step1-h180.jpg", "height_cm": 214, "meters": 3.0, "blocked": false, "note": "CNC table, window wall"},
+    {"run": "2026-11-04T163732Z", "file": "step1-h270.jpg", "height_cm": 215, "meters": 1.9, "blocked": false, "note": "cabinet and wall"},
+    {"run": "2026-11-04T143119Z", "file": "step0-h000.jpg", "height_cm": 70, "meters": 2.5, "blocked": false, "note": "box wall and CNC"},
+    {"run": "2026-11-04T143119Z", "file": "step0-h090.jpg", "height_cm": 70, "meters": 0.9, "blocked": true, "note": "glass enclosure; depth sees through it"},
+    {"run": "2026-11-04T143119Z", "file": "step0-h135.jpg", "height_cm": 70, "meters": 2.0, "blocked": false, "note": "black cabinet on the left edge, wall ahead"},
+    {"run": "2026-11-04T143119Z", "file": "step1-h000.jpg", "height_cm": 70, "meters": 0.7, "blocked": true, "note": "glass enclosure; depth sees through it"},
+    {"run": "2026-11-04T143119Z", "file": "step1-h045.jpg", "height_cm": 70, "meters": 0.5, "blocked": true, "note": "black cabinet fills the frame"},
+    {"run": "2026-11-04T143119Z", "file": "step1-h225.jpg", "height_cm": 70, "meters": 1.8, "blocked": false, "note": "pillar edge, F1 car beyond"}
+  ]
+}

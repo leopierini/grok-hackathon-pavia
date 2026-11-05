@@ -7,5 +7,12 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+models/
 node_modules/
 artifacts/
+robot/autonomy_stack_go2/build/
+robot/autonomy_stack_go2/install/
+robot/autonomy_stack_go2/log/
+robot/go2/rssi.dbm
+robot/go2/connect.request
+robot/go2/connect.status

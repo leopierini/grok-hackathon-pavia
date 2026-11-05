@@ -1,2 +1,4 @@
 # FakeDrone uses the standard library only.
 # The real Tello SDK is not required for this build.
+# Landing on the printed ArUco marker.
+opencv-contrib-python-headless<5
