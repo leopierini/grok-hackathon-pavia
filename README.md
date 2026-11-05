@@ -578,6 +578,42 @@ Reset after a fault asks for a recovery token, opens a new disarmed session, and
 
 ---
 
+## Intruder simulation (Grok vision, offline)
+
+A scripted run of the vision escalation: the drone sweeps, Grok flags a possible intruder, confirms it, and the dog is called. It uses the scripted `FakeReasoner` and the real presence helpers (`presence_state`, `suggested_action`, `image_direction`) from [`person3-grok/`](person3-grok/). It does not need a robot, an xAI key, or a network.
+
+![Intruder simulation replay](docs/media/intruder-sim.gif)
+
+```bash
+cd person3-grok
+PYTHONPATH=. python scripts/simulate_intruder.py          # prints the run, writes artifacts/sim/intruder_run.jsonl
+PYTHONPATH=. python -m pytest -q tests/test_simulate_intruder.py
+```
+
+Recorded output:
+
+```text
+T+  7.80s  info   Hallway: workbench, open door. Nothing of interest.
+T+ 13.60s  info   Main hall: people at desks. Bystanders, not the target.
+T+ 18.60s  info   No match yet. Continuing sweep, turning 45°.
+T+ 25.40s  info   Person near the stairs, partly hidden. Holding.
+T+ 28.00s  warn   [POSSIBLE] Seeing potential intruder. Investigating.
+T+ 32.60s  alert  [CONFIRMED] Intruder confirmed. Calling dog.
+T+ 35.80s  sys    [GROUND] Go2 dispatched to target. Lease granted.
+T+ 41.80s  sys    [GO2] On scene. Confirming at ground level.
+```
+
+How each step is decided:
+
+1. A frame with no person is logged as a scene note. The drone keeps sweeping.
+2. The first person read comes back `uncertain`. `suggested_action` returns `review`, so the drone holds and investigates. Nothing is dispatched.
+3. The next read of the same person comes back `person_visible`. `assess_incident` returns `dispatch`, and the dog is called.
+4. On the dog's front camera `person_visible` maps to `approach`, and the dog confirms at ground level.
+
+The dog is called only after a suspicion has been raised. The second test removes the uncertain read and checks that no dispatch happens. The timestamps match the live-run footage in the submission video, where the JSONL record is shown as the **GROK · VISION · SIM** panel. The panel is a replay of this simulation, not a live model transcript.
+
+---
+
 ## The message contract
 
 Protocol **2.0-draft**. Every message carries `protocol_version`, `message_id`, `mission_id`, `epoch`, `seq`, `sent_at`, `source`, `destination`, `kind`, `correlation_id`, `expires_at`, `simulated`, and `payload`.
