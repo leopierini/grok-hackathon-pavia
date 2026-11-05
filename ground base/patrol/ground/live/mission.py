@@ -287,7 +287,9 @@ class LiveMission:
 
     async def _run(self, takeoff: bool) -> None:
         try:
-            if takeoff and self.drone_state.get("state") != "airborne":
+            h = self.drone_state.get("h")
+            on_floor = self.drone_state.get("state") != "airborne" or (isinstance(h, (int, float)) and h <= 5)
+            if takeoff and on_floor:
                 if not self.settings.allow_takeoff:
                     self.emit("takeoff_refused", "drone", "Takeoff from Ground is disabled; waiting for the pilot.")
                 else:
@@ -317,8 +319,10 @@ class LiveMission:
 
     async def _wait_airborne(self, timeout_s: float) -> bool:
         end = time.monotonic() + timeout_s
+        await asyncio.sleep(1.0)
         while time.monotonic() < end:
-            if self.drone_state.get("state") == "airborne":
+            h = self.drone_state.get("h")
+            if self.drone_state.get("state") == "airborne" and (not isinstance(h, (int, float)) or h > 20):
                 return True
             await asyncio.sleep(0.2)
         return False
