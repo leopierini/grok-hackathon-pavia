@@ -1,6 +1,6 @@
 # Grok Hackathon at the Museum, Pavia
 
-[![Watch the live run: drone search, Grok-confirmed intruder, Go2 handoff](docs/media/mission-control-demo.jpg)](docs/media/mission-control-demo.mp4)
+[![Live run: drone search, Grok-confirmed intruder, Go2 handoff](docs/media/mission-control-demo.gif)](docs/media/mission-control-demo.mp4)
 
 **One gallery. One dog. One drone. One model. One station that is allowed to move them.**
 
