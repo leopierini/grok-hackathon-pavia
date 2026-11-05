@@ -296,6 +296,17 @@ class LiveMission:
                     self._set_phase("takeoff", "Drone taking off.")
                     result = await self._safe(self.drone.cmd("takeoff"), "drone", "takeoff")
                     self.emit("drone_command", "drone", "takeoff sent", action="takeoff", result=result)
+                    h = self.drone_state.get("h")
+                    if result.get("ok") is False and "airborne" in str(result.get("error")) and (
+                        isinstance(h, (int, float)) and h <= 5
+                    ):
+                        # Flight server still thinks it is flying after an unconfirmed land; it is on the floor.
+                        reset = await self._safe(self.drone.cmd("land"), "drone", "land")
+                        self.emit("drone_command", "drone", "land sent to resync the flight server (height 0)",
+                                  action="land", result=reset)
+                        await asyncio.sleep(3.0)
+                        result = await self._safe(self.drone.cmd("takeoff"), "drone", "takeoff")
+                        self.emit("drone_command", "drone", "takeoff retried", action="takeoff", result=result)
                     if not await self._wait_airborne(self.settings.takeoff_timeout_s):
                         await self.finish("Drone did not report airborne; demo aborted.", speak=False)
                         return
