@@ -83,6 +83,10 @@ _ACTIONS = frozenset(
         "approach",
         "stop",
         "review",
+        "play_warning",
+        "follow",
+        "return_home",
+        "land_on_dog",
     }
 )
 _DIRECTIONS = frozenset({"left", "center", "right", "unknown"})
@@ -98,7 +102,15 @@ _PROPOSAL_ACTION = {
     "approach": "approach",
     "stop": "stop",
     "dispatch_dog": "dispatch",
+    "play_warning": "play_warning",
+    "follow": "follow",
+    "return_home": "return_home",
+    "land_on_dog": "land_on_dog",
 }
+_DRONE_PROPOSALS = frozenset({"hold", "search", "reposition", "land_on_dog"})
+_PRESENCE_PROPOSALS = frozenset(
+    {"approach", "stop", "play_warning", "follow", "return_home", "land_on_dog"}
+)
 _TELLO_EXACT = frozenset(
     {
         "command",
@@ -140,7 +152,11 @@ _ID_LIMIT = 160
 
 @dataclass(frozen=True)
 class Assessment:
-    """One decision outcome. motion_authorized stays false."""
+    """One decision outcome. A stored proposal may be approved later.
+
+    motion_authorized is true only when this assessment stored a proposal.
+    The assessment still does not call a device or grant a motor command.
+    """
 
     status: str
     error_code: str | None
@@ -312,6 +328,14 @@ def _assess(
             model_id=decision.model_id,
         )
     if decision.target_state != "person_visible":
+        presence = _presence_outcome(
+            decision,
+            request,
+            current_track_id=current_track_id,
+            halt_latched=halt_latched,
+        )
+        if presence is not None:
+            return presence
         return _withheld(
             decision,
             request,
@@ -410,7 +434,7 @@ def _assess(
         proposal=proposal,
         image_direction=decision.image_direction,
         image_direction_space="image",
-        motion_authorized=False,
+        motion_authorized=proposal is not None,
         halt_latched=halt_latched,
         model_id=decision.model_id,
         model_score=chosen.confidence,
@@ -489,6 +513,57 @@ def _action(suggested: str, calibration_id: str | None) -> tuple[str, bool]:
     return suggested, False
 
 
+def _presence_outcome(
+    decision: _Decision,
+    request: _Request,
+    *,
+    current_track_id: str | None,
+    halt_latched: bool,
+) -> Assessment | None:
+    """Honor a gone or uncertain presence action instead of dropping it."""
+    mapped = _PROPOSAL_ACTION.get(decision.suggested_action)
+    if mapped not in _PRESENCE_PROPOSALS or halt_latched or not current_track_id:
+        return None
+    proposal = _proposal(
+        decision,
+        request,
+        track_id=current_track_id,
+        action=decision.suggested_action,
+        forced=False,
+        halt_latched=False,
+    )
+    if proposal is None:
+        return None
+    payload = proposal["payload"]
+    proposal_action = payload["action"] if isinstance(payload, Mapping) else ""
+    trace = (
+        "accepted",
+        decision.target_state,
+        f"proposal:{proposal_action}",
+        f"direction:{decision.image_direction}:image",
+        "motion:empty",
+        "devices:untouched",
+    )
+    return Assessment(
+        status="ok",
+        error_code=None,
+        error_detail=None,
+        outcome=str(proposal_action),
+        detail=str(proposal_action),
+        trace=trace,
+        track_id=current_track_id,
+        track_changed=False,
+        proposal=proposal,
+        image_direction=decision.image_direction,
+        image_direction_space="image",
+        motion_authorized=True,
+        halt_latched=False,
+        model_id=decision.model_id,
+        model_score=None,
+        journal=_journal(decision, request, current_track_id),
+    )
+
+
 def _proposal(
     decision: _Decision,
     request: _Request,
@@ -498,12 +573,17 @@ def _proposal(
     forced: bool,
     halt_latched: bool,
 ) -> dict[str, object] | None:
-    if halt_latched or request.stage in _DOG_STAGES:
+    if halt_latched:
+        return None
+    if request.stage == "dog_acquire" and action == "switch_to_dog_vision":
         return None
     mapped = _PROPOSAL_ACTION.get(action)
     if mapped is None:
         return None
-    component = "dog" if action == "dispatch_dog" and not forced else "drone"
+    if mapped in _DRONE_PROPOSALS or (action == "dispatch_dog" and forced):
+        component = "drone"
+    else:
+        component = "dog"
     reason = (
         "Image-space hold. A body-frame move needs calibration."
         if forced

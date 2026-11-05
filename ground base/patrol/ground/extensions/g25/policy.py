@@ -73,6 +73,10 @@ _ACTIONS = frozenset(
         "approach",
         "stop",
         "review",
+        "play_warning",
+        "follow",
+        "return_home",
+        "land_on_dog",
     }
 )
 _DIRECTIONS = frozenset({"left", "center", "right", "unknown"})

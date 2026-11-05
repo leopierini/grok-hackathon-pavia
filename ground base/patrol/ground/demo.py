@@ -77,6 +77,8 @@ class Demo:
         seed: int,
         controls: StepSession | None = None,
         budgets: Mapping[int, tuple[float, float]] | None = None,
+        dog_link: object | None = None,
+        radio: Mapping[str, Json] | None = None,
         grok: str = "fake",
     ) -> None:
         if grok not in {"fake", "real"}:
@@ -110,6 +112,9 @@ class Demo:
         self.operator_notes: list[Json] = []
         self.waiting_for_model = False
         self._halt_skips = 0
+        self.dog_link = dog_link
+        self.radio = dict(radio) if radio is not None else None
+        self.dog_motion_log: Json | None = None
 
     @property
     def now(self) -> str:
@@ -553,6 +558,13 @@ class Demo:
         )
         command = await self.message(cast(Mapping[str, object], approved.data["command"]))
         self.commands.append(command)
+        if self.dog_link is not None:
+            live = await self.dog_link.execute(command)  # type: ignore[attr-defined]
+            self.dog_motion_log = live
+            self._emit("dog_ethernet", live)
+            if getattr(self.dog_link, "armed", False) and live.get("sent") is not True:
+                self.reason = str(live.get("detail") or "dog ethernet motion was not sent")
+                raise _Stopped(self.reason)
         for state in ("accepted", "running", "completed"):
             ack = _load(f"contracts/examples/dog-ack-{state}.json")
             ack["correlation_id"] = command["message_id"]
@@ -744,12 +756,10 @@ class Demo:
         """
 
         settings = self.context["schedule_settings"]
-        if self.grok != "real":
-            if not isinstance(settings, Mapping):
-                raise fault("invalid_input", "schedule settings must be an object")
-            return settings
         if not isinstance(settings, Mapping):
             raise fault("invalid_input", "schedule settings must be an object")
+        if self.grok != "real":
+            return settings
         from patrol.ground.signal.client import DEFAULT_IMAGE_MODEL
 
         named = dict(settings)
@@ -831,6 +841,8 @@ async def run_demo(
     transport: str = "ethernet",
     controls: StepSession | None = None,
     budgets: Mapping[int, tuple[float, float]] | None = None,
+    dog_link: object | None = None,
+    radio: Mapping[str, Json] | None = None,
     grok: str = "fake",
 ) -> Json:
     if scenario not in SCENARIOS or transport not in {"ethernet", "wifi"}:
@@ -864,7 +876,7 @@ async def run_demo(
         ),
         settings,
     )
-    demo = Demo(services, output, scenario, seed, controls, budgets, grok)
+    demo = Demo(services, output, scenario, seed, controls, budgets, dog_link, radio, grok)
     if controls is not None:
 
         def request_safety(reason: str) -> None:
@@ -877,6 +889,8 @@ async def run_demo(
     cleanup_errors: list[str] = []
     report: Json | None = None
     try:
+        if dog_link is not None:
+            await dog_link.connect()  # type: ignore[attr-defined]
         try:
             await demo.run(transport)
         except _Stopped:
@@ -940,6 +954,10 @@ async def run_demo(
             "physical_acceptance": "not performed",
             "cleanup_errors": cleanup_errors,
         }
+        if demo.radio is not None:
+            report["radio"] = demo.radio
+        if demo.dog_motion_log is not None:
+            report["dog_ethernet"] = demo.dog_motion_log
         if controls is not None:
             report["step_control"] = controls.get_snapshot()
         await services.journal.publish(
@@ -947,6 +965,11 @@ async def run_demo(
         )
         return report
     finally:
+        if dog_link is not None:
+            try:
+                await dog_link.close()  # type: ignore[attr-defined]
+            except Exception as exc:
+                cleanup_errors.append(type(exc).__name__)
         if controls is not None:
             # Stop the supervisor before closing device/journal services.
             await controls.close()

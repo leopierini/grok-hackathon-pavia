@@ -204,7 +204,7 @@ def test_uncalibrated_reposition_becomes_a_hold(tmp_path: Path) -> None:
     assert body["action"] == "hold"
     assert body["direction_hint"] == "left"
     assert "motion" not in body
-    assert assessed.motion_authorized is False
+    assert assessed.motion_authorized is True
 
 
 def test_dog_track_mismatch_does_not_replace_the_drone_track(tmp_path: Path) -> None:

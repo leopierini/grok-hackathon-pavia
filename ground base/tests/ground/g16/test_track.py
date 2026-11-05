@@ -46,7 +46,7 @@ def test_drone_example_opens_a_track_and_a_hold_proposal(tmp_path: Path) -> None
     assert assessed.status == "ok"
     assert assessed.track_id == "target-001"
     assert assessed.track_changed is True
-    assert assessed.motion_authorized is False
+    assert assessed.motion_authorized is True
     assert assessed.model_id == "CONFIGURE_VERIFIED_IMAGE_MODEL"
     assert assessed.model_score == 0.91
     assert assessed.image_direction == "center"
@@ -85,7 +85,7 @@ def test_execute_records_image_space_and_leaves_devices_idle(tmp_path: Path) -> 
         payload = result.events[0].payload
         assert payload["image_direction_space"] == "image"
         assert payload["image_direction"] == "center"
-        assert payload["motion_authorized"] is False
+        assert payload["motion_authorized"] is True
         assert payload["model_score_is_permission"] is False
         assert payload["device_commands"] == ()
         assert payload["motion_trace"] == ()
@@ -115,7 +115,8 @@ def test_low_score_still_opens_a_track_without_permission(tmp_path: Path) -> Non
     assessed = feature.assess(cloned, _load("drone-vision-request.json"))
     assert assessed.track_id == "target-001"
     assert assessed.model_score == 0.01
-    assert assessed.motion_authorized is False
+    assert assessed.proposal is not None
+    assert assessed.motion_authorized is True
 
 
 def test_carried_track_id_is_reused_and_a_second_id_is_not_opened(tmp_path: Path) -> None:

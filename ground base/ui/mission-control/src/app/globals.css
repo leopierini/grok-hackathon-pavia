@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #f6faff;
+  --bg: #f6faff;
+  --surface: #ffffff;
+  --surface-2: #eaf2fb;
+  --text: #16243a;
+  --muted: #66768f;
+  --border: #d6e4f5;
+  --ok: #0e7a56;
+  --ok-bg: #e5f6ef;
+  --warn: #8a5a10;
+  --warn-bg: #fff4e2;
+  --bad: #b42338;
+  --bad-bg: #fdecee;
+  --info: #174ea6;
+  --info-bg: #e7f0ff;
+  --ring: #1769ff;
+  --chrome: #111b2c;
+  --chrome-2: #17304c;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0b1220;
+  --bg: #0b1220;
+  --surface: #111c2d;
+  --surface-2: #1a2940;
+  --text: #e7eef8;
+  --muted: #9aa8bd;
+  --border: #24344a;
+  --ok: #8ee0c2;
+  --ok-bg: #12352c;
+  --warn: #f2c572;
+  --warn-bg: #3a2c12;
+  --bad: #ffb4bc;
+  --bad-bg: #3a1820;
+  --info: #b9d2ff;
+  --info-bg: #15243c;
+  --ring: #39c7f4;
+  --chrome: #070d18;
+  --chrome-2: #10192a;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font-inter), "Segoe UI", sans-serif;
+  letter-spacing: -0.011em;
+}
+
+h1,
+h2,
+.font-display {
+  font-family: var(--font-grotesk), var(--font-inter), "Segoe UI", sans-serif;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #8aa0b8 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #8aa0b8;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+.canvas-grid {
+  background-color: var(--canvas);
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(23, 105, 255, 0.16) 1px, transparent 0),
+    radial-gradient(ellipse at 80% -10%, rgba(57, 199, 244, 0.18), transparent 42%),
+    radial-gradient(ellipse at 10% 120%, rgba(23, 105, 255, 0.12), transparent 46%);
+  background-size: 22px 22px, auto, auto;
+}

@@ -384,7 +384,7 @@ def _event_payload(assessment: Assessment) -> dict[str, object]:
         "track_changed": assessment.track_changed,
         "image_direction": assessment.image_direction,
         "image_direction_space": assessment.image_direction_space,
-        "motion_authorized": False,
+        "motion_authorized": assessment.motion_authorized,
         "halt_latched": assessment.halt_latched,
         "model_id": assessment.model_id,
         "model_score": assessment.model_score,
