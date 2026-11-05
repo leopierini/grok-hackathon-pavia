@@ -21,8 +21,9 @@ while true; do
     iptables -C FORWARD -i eth0 -o tailscale0 -j ACCEPT 2>/dev/null || iptables -A FORWARD -i eth0 -o tailscale0 -j ACCEPT
     iptables -C FORWARD -i tailscale0 -o eth0 -j ACCEPT 2>/dev/null || iptables -A FORWARD -i tailscale0 -o eth0 -j ACCEPT
   fi
-  ip link set wlan0 up 2>/dev/null || true
-  best=$(iw dev wlan0 scan 2>/dev/null | awk '
+  # wlan1 is the 2.4 GHz stick. wlan0 is joined to the facility, so it cannot scan.
+  ip link set wlan1 up 2>/dev/null || true
+  best=$(timeout 8 iw dev wlan1 scan 2>/dev/null | awk '
     /signal:/ {sig=$2}
     $1=="SSID:" && toupper($0) ~ /62A593/ {print sig}
   ' | sort -n | tail -1)

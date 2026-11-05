@@ -68,7 +68,7 @@ def main():
     from nav_msgs.msg import Odometry
     from rclpy.node import Node
     from sensor_msgs.msg import Joy
-    from std_msgs.msg import Float32, Int8
+    from std_msgs.msg import Empty, Float32, Int8
     from std_srvs.srv import Trigger
 
     class Seek(Node):
@@ -87,6 +87,7 @@ def main():
             self.joy_pub = self.create_publisher(Joy, "/joy", 5)
             self.goal_pub = self.create_publisher(PointStamped, "/goal_point", 5)
             self.create_service(Trigger, "/find_drone", self.on_find)
+            self.create_subscription(Empty, "/find_drone_go", self.on_go, 5)
             self.create_service(Trigger, "/return_home", self.on_home)
             self.get_logger().info("find_drone and return_home ready")
 
@@ -165,8 +166,19 @@ def main():
                 time.sleep(0.2)
             return False
 
-        def on_find(self, _req, resp):
+        def on_go(self, _msg):
+            self.stop = 0
+            self.begin()
+
+        def begin(self):
             x, y, _, _ = self.pose()
+            if self.busy or x is None or not sane(x, y):
+                return False
+            self.busy = True
+            threading.Thread(target=self.search, daemon=True).start()
+            return True
+
+        def on_find(self, _req, resp):
             if self.busy:
                 resp.success = True
                 resp.message = "already"
@@ -175,12 +187,10 @@ def main():
                 resp.success = False
                 resp.message = "stopped"
                 return resp
-            if x is None or not sane(x, y):
+            if not self.begin():
                 resp.success = False
                 resp.message = "no pose"
                 return resp
-            self.busy = True
-            threading.Thread(target=self.search, daemon=True).start()
             resp.success = True
             resp.message = "started"
             return resp

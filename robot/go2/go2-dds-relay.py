@@ -37,7 +37,8 @@ def relay(port):
     while True:
         data, addr = src.recvfrom(65535)
         if addr[0] == DOG:
-            to_vm.sendto(data, (GROUP, port))
+            # wg0 rejects multicast (ENOKEY). The VM socket is already on this port.
+            to_vm.sendto(data, (VM, port))
         elif addr[0] == VM:
             to_dog.sendto(data, (GROUP, port))
         else:
