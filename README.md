@@ -1,5 +1,7 @@
 # Grok Hackathon at the Museum, Pavia
 
+[![Watch the live run: drone search, Grok-confirmed intruder, Go2 handoff](docs/media/mission-control-demo.jpg)](docs/media/mission-control-demo.mp4)
+
 **One gallery. One dog. One drone. One model. One station that is allowed to move them.**
 
 This is the team repository for the Grok Hackathon at Ctrl+Alt Museum, Pavia, 4–5 November 2026. Three trees sit side by side. They do not share a Python path.
