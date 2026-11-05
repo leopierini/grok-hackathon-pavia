@@ -1,7 +1,7 @@
 {
   "frame_id": "drone-downward-001",
   "image_ref": "artifact://demo-20261104-001/drone/downward-001.jpg",
-  "sha256": "5c8aab962745e66c1937470943fc3d77590053adfd94b3fafba679d27bb7cde5",
+  "sha256": "04dc48a1e4a90b8e87946fff7dc1303fbcdc8fc3a5f5a34bb1ac444e1fa32cd3",
   "captured_at": "2026-11-04T13:00:10.000Z",
   "camera_id": "downward",
   "camera_epoch": 1,
