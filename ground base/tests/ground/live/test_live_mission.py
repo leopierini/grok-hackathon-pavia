@@ -19,6 +19,7 @@ class FakeDrone:
     def __init__(self, airborne: bool = True) -> None:
         self.cmds: list[str] = []
         self.nudges: list[float] = []
+        self.pulses: list[tuple[float, float]] = []
         self.yaw = 0.0
         self.state_name = "airborne" if airborne else "grounded"
         self.down = False
@@ -38,6 +39,12 @@ class FakeDrone:
         if action == "takeoff":
             self.state_name = "airborne"
         return {"ok": True}
+
+    async def stick_pulse(self, *, fb: float = 0.0, lr: float = 0.0, yaw: float = 0.0, seconds: float) -> None:
+        assert all(abs(v) <= 1.0 for v in (fb, lr, yaw)) and seconds <= 2.0
+        self.pulses.append((fb, yaw))
+        if yaw:
+            await self.yaw_nudge(yaw, seconds)
 
     async def yaw_nudge(self, axis: float, seconds: float) -> None:
         assert abs(axis) <= 1.0 and seconds <= 2.0
@@ -88,7 +95,7 @@ class BrokenGrok(ScriptedGrok):
         raise RuntimeError("xAI unavailable")
 
 
-FAST = dict(scan_nudge_s=0.01, track_nudge_s=0.01, drone_vision_period_s=0.05, dog_vision_period_s=0.05, drone_poll_s=0.02,
+FAST = dict(stroke_s=0.01, scan_nudge_s=0.01, track_nudge_s=0.01, drone_vision_period_s=0.05, dog_vision_period_s=0.05, drone_poll_s=0.02,
             speak_cooldown_s=0.0, drone_lost_after=3, scan_period_s=0.05, allow_takeoff=True)
 
 
@@ -119,7 +126,9 @@ def test_one_start_runs_the_whole_demo_by_itself(tmp_path: Path) -> None:
     idx = [kinds.index(k) for k in order]
     assert idx == sorted(idx), list(zip(order, idx))
     assert drone.cmds[0] == "takeoff" and drone.cmds[1] == "hover" and drone.cmds[-1] == "land"
-    assert "scan_nudge" in kinds  # patrol scanned before the person appeared
+    assert "scan_nudge" in kinds  # patrol moved before the person appeared
+    fbs = [fb for fb, _ in drone.pulses if fb]
+    assert fbs and fbs[0] > 0 and sum(1 for f in fbs if f > 0) - sum(1 for f in fbs if f < 0) in (0, 1)
     assert "stand" in dog.ops and "halt" in dog.ops  # alert, then soft lie-down at the end
     assert "Search turn" in next(e["detail"] for e in m.events if e["kind"] == "dog_move")  # dog cam empty first
     first_seen = next(e["seq"] for e in m.events if e["kind"] == "dog_target_acquired")

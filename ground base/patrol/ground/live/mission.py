@@ -74,6 +74,7 @@ class DroneLike(Protocol):
     async def frame(self) -> bytes | None: ...
     async def cmd(self, action: str) -> Json: ...
     async def yaw_nudge(self, axis: float, seconds: float) -> None: ...
+    async def stick_pulse(self, *, fb: float = 0.0, lr: float = 0.0, yaw: float = 0.0, seconds: float) -> None: ...
 
 
 class GrokLike(Protocol):
@@ -94,6 +95,10 @@ class Settings:
     scan_period_s: float = 2.5  # pause between scan turns (lets Grok see a still frame)
     scan_axis: float = 1.0  # x server speed 30 = rc yaw 30
     scan_nudge_s: float = 1.5
+    # "sweep": forward, look, back, look, turn (stays near the takeoff spot); "spin": turn only
+    pattern: str = "sweep"
+    stroke_axis: float = 0.8  # x server speed 30 = rc 24 forward/back
+    stroke_s: float = 1.5
     # drone tracking after detection
     track: bool = True
     track_deadband: float = 0.12
@@ -401,15 +406,30 @@ class LiveMission:
             await asyncio.sleep(self.settings.drone_poll_s)
 
     async def _scan_loop(self) -> None:
+        """Patrol movement while nobody is confirmed. Any first sighting freezes it so Grok can confirm."""
+        s = self.settings
+        if s.pattern == "sweep":
+            steps = [("forward", {"fb": s.stroke_axis}, s.stroke_s), ("back", {"fb": -s.stroke_axis}, s.stroke_s),
+                     ("turn", {"yaw": s.scan_axis}, s.scan_nudge_s)]
+        else:
+            steps = [("turn", {"yaw": s.scan_axis}, s.scan_nudge_s)]
+        i = 0
+        owed_back = False  # a forward stroke is always paid back before anything else
         while self.phase == "patrol":
-            await asyncio.sleep(self.settings.scan_period_s)
+            await asyncio.sleep(s.scan_period_s)
             if self.phase != "patrol" or self.drone_state.get("state") != "airborne":
                 continue
+            if self.hits > 0 and not owed_back:
+                continue  # possible target in view: hold still for the confirming frame
+            name, axes, seconds = steps[i % len(steps)]
             try:
-                await self.drone.yaw_nudge(self.settings.scan_axis, self.settings.scan_nudge_s)
-                self.emit("scan_nudge", "drone", "Patrol scan: drone turns in place.")
+                await self.drone.stick_pulse(seconds=seconds, **axes)
+                owed_back = name == "forward"
+                i += 1
+                self.emit("scan_nudge", "drone", f"Patrol: drone {'turns in place' if name == 'turn' else 'moves ' + name}.",
+                          move=name)
             except Exception as exc:  # noqa: BLE001
-                self.emit("peer_error", "drone", f"scan nudge failed: {exc}")
+                self.emit("peer_error", "drone", f"patrol move failed: {exc}")
 
     async def _drone_vision_loop(self) -> None:
         period = self.settings.drone_vision_period_s

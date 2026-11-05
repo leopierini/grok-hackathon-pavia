@@ -10,6 +10,8 @@ single WebRTC slot. Peers come from the environment:
     GROUND_LIVE_ARM_DOG 1 to allow stand and operator steps (halt always works)
     GROUND_LIVE_GROK    real | fake             (default real; key from ~/.config/patrol/xai.env)
     GROUND_LIVE_TARGET  who to look for, e.g. "a person wearing a red cap" (ignore everyone else)
+    GROUND_LIVE_PATTERN sweep (forward/back/turn, default) | spin (turn only)
+    GROUND_LIVE_STROKE_S forward/back stroke length in seconds (default 1.5, max 2)
     GROUND_LIVE_TAKEOFF 0 to leave takeoff to the pilot (default 1: Start patrol takes off)
 """
 
@@ -51,6 +53,8 @@ class LiveController:
             "arm_dog": _flag(e, "GROUND_LIVE_ARM_DOG"),
             "grok": e.get("GROUND_LIVE_GROK", "real"),
             "target": e.get("GROUND_LIVE_TARGET", "").strip() or "the person standing or walking in the open floor area",
+            "pattern": e.get("GROUND_LIVE_PATTERN", "sweep"),
+            "stroke_s": float(e.get("GROUND_LIVE_STROKE_S", "1.5") or 1.5),
             "takeoff": e.get("GROUND_LIVE_TAKEOFF", "1").strip().lower() in {"1", "true", "yes", "on"},
         }
 
@@ -81,7 +85,9 @@ class LiveController:
             dog = EthernetDogLink(run_dir / "dog", armed=cfg["arm_dog"], fake=cfg["dog"] == "sim",
                                   ip=cfg["dog_ip"], limits=limits)
         self.mission = LiveMission(drone=DroneHttp(cfg["drone"]), dog=dog, grok=grok, run_dir=run_dir,
-                                   settings=Settings(allow_takeoff=cfg["takeoff"]), dog_mode=cfg["dog"])
+                                   settings=Settings(allow_takeoff=cfg["takeoff"],
+                                                     pattern="spin" if cfg["pattern"] == "spin" else "sweep",
+                                                     stroke_s=max(0.3, min(2.0, cfg["stroke_s"]))), dog_mode=cfg["dog"])
         await self.mission.connect()
         self.error = None
         return {"ok": True, "detail": "Live mission connected. Nothing moves in standby."}

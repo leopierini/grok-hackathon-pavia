@@ -72,6 +72,24 @@ class DroneHttp:
             raise DroneError(f"Ground does not send drone action {action!r}")
         return await asyncio.to_thread(self._post, "/cmd", {"action": action})
 
+    async def stick_pulse(self, *, fb: float = 0.0, lr: float = 0.0, yaw: float = 0.0, seconds: float) -> None:
+        """One bounded stick pulse (|axis| <= 1 x server speed, <= 2 s), then explicit zero.
+        Altitude is never commanded. The server deadman backs it up."""
+        axes = {k: max(-1.0, min(1.0, float(v))) for k, v in {"fb": fb, "lr": lr, "yaw": yaw}.items()}
+        seconds = max(0.0, min(2.0, float(seconds)))
+        loop = asyncio.get_running_loop()
+        end = loop.time() + seconds
+        try:
+            while loop.time() < end:
+                self._seq += 1
+                await asyncio.to_thread(self._post, "/sticks", {**axes, "ud": 0, "sid": SID, "seq": self._seq})
+                await asyncio.sleep(0.1)
+        finally:
+            self._seq += 1
+            await asyncio.to_thread(
+                self._post, "/sticks", {"lr": 0, "fb": 0, "ud": 0, "yaw": 0, "sid": SID, "seq": self._seq}
+            )
+
     async def yaw_nudge(self, axis: float, seconds: float) -> None:
         """Yaw only, |axis| <= 1 (times the server's speed setting), at most 2 s, then explicit zero.
         The server deadman (sticks to zero 300 ms after the last update) backs it up."""
