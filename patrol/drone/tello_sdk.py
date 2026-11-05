@@ -37,7 +37,20 @@ def parse_state(packet: str) -> dict:
 
 
 class TelloSDK:
-    def __init__(self, listen_state: bool = True) -> None:
+    def __init__(
+        self,
+        listen_state: bool = True,
+        host: str | None = None,
+        port: int | None = None,
+    ) -> None:
+        # Direct scripts keep the module constants. Callers that already have
+        # a measured address pass it in and never fall through to those constants.
+        self.host = TELLO_IP if host is None else host
+        self.port = TELLO_PORT if port is None else int(port)
+        if not isinstance(self.host, str) or not self.host.strip():
+            raise ValueError("Tello host is empty")
+        if not 1 <= self.port <= 65535:
+            raise ValueError("Tello port is out of range")
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(("", LOCAL_PORT))
         self._state: dict = {}
@@ -83,7 +96,7 @@ class TelloSDK:
 
     def send(self, command: str) -> None:
         """Send a command that does not reply. `rc` is one of these."""
-        self.sock.sendto(command.encode(), (TELLO_IP, TELLO_PORT))
+        self.sock.sendto(command.encode(), (self.host, self.port))
 
     def _discard_stale(self) -> None:
         """Drop replies left over from the previous command.
@@ -104,7 +117,7 @@ class TelloSDK:
     def query(self, command: str, timeout: float = 5) -> str:
         self._discard_stale()
         self.sock.settimeout(timeout)
-        self.sock.sendto(command.encode(), (TELLO_IP, TELLO_PORT))
+        self.sock.sendto(command.encode(), (self.host, self.port))
         data, _addr = self.sock.recvfrom(2048)
         return data.decode(errors="replace").strip()
 

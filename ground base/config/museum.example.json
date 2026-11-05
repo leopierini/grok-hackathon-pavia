@@ -11,5 +11,5 @@
     "host": null,
     "port": null
   },
-  "note": "Leave host and port null. Real mode reads the environment variables named above, then a non-null value in this file if one is supplied with --config. Unset means the process exits 2 and opens no socket. Do not commit a host, a port, or an API key."
+  "note": "Leave host and port null. Real mode reads the environment variables named above, then a non-null value in this file if one is supplied with --config. Unset means the process exits 2 and opens no socket. A set value still does not move hardware unless --i-understand-this-moves-hardware is passed. Do not commit a host, a port, or an API key."
 }

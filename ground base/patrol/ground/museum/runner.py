@@ -12,7 +12,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
+from patrol.ground.museum.endpoint import motion_required_message
 from patrol.ground.museum.peers import ConfigError, DogPeer, DronePeer, open_dog, open_drone
 from patrol.ground.museum.policy import MuseumPolicy, _plus
 from patrol.ground.museum.safety import decision_motor_phrase
@@ -23,6 +25,7 @@ from patrol.ground.museum.vision import (
     build_request,
     summarize_decision,
 )
+from patrol.ground.signal.errors import SignalError
 
 SCENARIOS = (
     "happy_path",
@@ -159,6 +162,11 @@ class StoryReport:
     drone_effects: list[Json] = field(default_factory=list)
     fake_drone_flight_state: str | None = None
     patrol_frame: str | None = None
+    dog_mode: str = "fake"
+    drone_mode: str = "fake"
+    motion_authorized: bool = False
+    gaps: list[Json] = field(default_factory=list)
+    drone_commands: list[str] = field(default_factory=list)
 
     def as_dict(self) -> Json:
         return {
@@ -180,6 +188,11 @@ class StoryReport:
             "drone_effects": self.drone_effects,
             "fake_drone_flight_state": self.fake_drone_flight_state,
             "patrol_frame": self.patrol_frame,
+            "dog_mode": self.dog_mode,
+            "drone_mode": self.drone_mode,
+            "motion_authorized": self.motion_authorized,
+            "gaps": self.gaps,
+            "drone_commands": self.drone_commands,
         }
 
 
@@ -205,29 +218,69 @@ def run_story(
     grok: str = "fake",
     environ: Mapping[str, str] | None = None,
     file_config: Mapping[str, object] | None = None,
+    motion_authorized: bool = False,
+    dog_conn_factory: Any = None,
+    drone_sdk_factory: Any = None,
+    drone_frame: Any = None,
+    drone_timing: Mapping[str, float] | None = None,
+    grok_client: Any = None,
 ) -> StoryReport:
-    """Run one scenario. Real dog or drone configuration raises ``ConfigError``."""
+    """Run one scenario.
+
+    Real dog or drone mode requires ``motion_authorized``. Missing host or port
+    raises ``ConfigError`` before a socket is opened.
+    """
 
     if scenario not in SCENARIOS:
         raise ConfigError(f"unknown scenario {scenario!r}")
     if grok not in {"fake", "real"}:
         raise ConfigError("grok mode must be fake or real")
+    if (dog == "real" or drone == "real") and not motion_authorized:
+        raise ConfigError(motion_required_message())
     env = dict(environ) if environ is not None else {}
-    report = StoryReport(scenario=scenario, grok=grok)
-    dog_peer = open_dog(dog, output / "dog", env, file_config)
-    drone_peer = open_drone(drone, output / "drone", env, file_config)
-    asyncio.run(_run(report, dog_peer, drone_peer, grok))
-    scripted = grok == "fake"
-    problem = invariant_problem(report) or (script_problem(report) if scripted else None)
+    report = StoryReport(
+        scenario=scenario,
+        grok=grok,
+        dog_mode=dog,
+        drone_mode=drone,
+        motion_authorized=motion_authorized,
+    )
+    dog_peer = open_dog(
+        dog,
+        output / "dog",
+        env,
+        file_config,
+        conn_factory=dog_conn_factory,
+    )
+    drone_peer = open_drone(
+        drone,
+        output / "drone",
+        env,
+        file_config,
+        motion_authorized=motion_authorized,
+        sdk_factory=drone_sdk_factory,
+        frame_source=drone_frame,
+        timing=drone_timing,
+    )
+    source = grok_client
+    if source is None:
+        source = ScriptedGrok() if grok == "fake" else RealGrok()
+    asyncio.run(_run(report, dog_peer, drone_peer, source))
+    problem = invariant_problem(report)
+    if dog == "fake" and drone == "fake" and grok == "fake" and grok_client is None:
+        problem = problem or script_problem(report)
+    else:
+        problem = problem or hardware_problem(report)
+        if grok == "fake":
+            problem = problem or real_story_problem(report)
     report.ok = problem is None
-    report.detail = "passed" if problem is None else problem
+    report.detail = _detail(problem, report)
     return report
 
 
-async def _run(report: StoryReport, dog: DogPeer, drone: DronePeer, grok: str) -> None:
+async def _run(report: StoryReport, dog: DogPeer, drone: DronePeer, source: Any) -> None:
     policy = MuseumPolicy()
     clock = _Clock()
-    source: ScriptedGrok | RealGrok = ScriptedGrok() if grok == "fake" else RealGrok()
     intruder = False
     seq = 0
     try:
@@ -281,7 +334,13 @@ async def _run(report: StoryReport, dog: DogPeer, drone: DronePeer, grok: str) -
                     track_id=policy.track_id or "target-001",
                     seq=seq,
                 )
-                decision = source.answer(request, state, answered)
+                try:
+                    decision = source.answer(request, state, answered)
+                except SignalError as exc:
+                    if exc.code == "timeout":
+                        report.timeline.append("grok:timeout")
+                        continue
+                    raise
                 if decision is None:
                     report.timeline.append("grok:timeout")
                     continue
@@ -303,7 +362,13 @@ async def _run(report: StoryReport, dog: DogPeer, drone: DronePeer, grok: str) -
         report.drone_effects = list(drone.effects)
         report.fake_drone_flight_state = drone.flight_state
         report.patrol_frame = drone.patrol_frame
+        close_dog = getattr(dog.dog, "close", None)
+        if close_dog is not None:
+            await close_dog()
         await drone.close()
+        report.drone_commands = [
+            str(item) for item in getattr(drone.drone, "commands", []) if isinstance(item, str)
+        ]
 
 
 async def _deliver(
@@ -326,9 +391,16 @@ async def _deliver(
         if applied:
             report.delivered.append(summary)
             report.timeline.append(f"cmd:{action}")
+            if action == "halt":
+                await drone.halt()
+            continue
+        if peer.outcome == "gap" and peer.last_gap is not None:
+            report.gaps.append(dict(peer.last_gap))
+            report.timeline.append(f"gap:{action}")
             continue
         report.undelivered.append(summary)
         report.timeline.append(f"undelivered:{action}")
+        await drone.halt()
         if not policy.halted:
             halt = policy.halt_command(clock.push(), "Link lost. Halt.")
             for item in halt:
@@ -431,6 +503,103 @@ def script_problem(report: StoryReport) -> str | None:
     if "inspect" not in report.drone_trace or "connect" not in report.dog_trace:
         return "fake dog or fake drone was not used"
     return None
+
+
+def hardware_problem(report: StoryReport) -> str | None:
+    """Motor log checks for a run that touched a real adapter or a stand-in SDK."""
+
+    commands = report.drone_commands
+    if commands.count("takeoff") > 1:
+        return "more than one takeoff"
+    if commands.count("land") > commands.count("takeoff"):
+        return "a land was sent without a matching takeoff"
+    for command in commands:
+        head = command.split(" ", 1)[0]
+        if head in {"forward", "back", "left", "right", "up", "down", "go", "curve", "flip"}:
+            return f"translation command {command}"
+        if command.startswith("rc ") and command != "rc 0 0 0 0":
+            return "nonzero rc"
+    for item in report.gaps:
+        if not item.get("owner") or not item.get("issues") or not item.get("action"):
+            return "gap missing owner or issue"
+    halted = report.scenario in {"halt", "dog_dropout", "drone_dropout"}
+    if not halted and "emergency" in commands:
+        return "emergency on a scenario that did not halt"
+    return None
+
+
+def real_story_problem(report: StoryReport) -> str | None:
+    """Scripted Grok with at least one real peer: same story, gaps allowed."""
+
+    expected_actions, _expected_spoken, expected_grok = _EXPECTED[report.scenario]
+    if report.grok_calls != expected_grok:
+        return f"grok calls {report.grok_calls}, expected {expected_grok}"
+    relevant: list[str] = []
+    for item in report.timeline:
+        if item.startswith(("cmd:", "gap:")):
+            action = item.split(":", 1)[1]
+            if action not in expected_actions:
+                if report.scenario == "dog_dropout" and action == "halt":
+                    relevant.append(action)
+                    continue
+                return f"unexpected {action}"
+            relevant.append(action)
+        elif item.startswith("undelivered:"):
+            action = item.split(":", 1)[1]
+            if action in expected_actions:
+                relevant.append(action)
+    expected = tuple(expected_actions)
+    actual = tuple(relevant)
+    optional_halt = report.scenario == "dog_dropout" and actual == expected + ("halt",)
+    if actual != expected and not optional_halt:
+        return f"actions {actual}, expected {expected}"
+    delivered_warnings = sum(
+        1 for item in report.delivered if item.get("action") == "play_warning"
+    )
+    gap_warnings = sum(1 for item in report.gaps if item.get("action") == "play_warning")
+    if delivered_warnings + gap_warnings != expected_actions.count("play_warning"):
+        return "warning count"
+    if tuple(report.spoken) != ("go away",) * delivered_warnings:
+        return f"spoken {tuple(report.spoken)}"
+    follows = [item for item in report.delivered if item.get("action") == "follow"]
+    if any(item.get("standoff_m") != 2.0 for item in follows):
+        return "follow standoff was not 2.0"
+    lands = [item for item in report.delivered if item.get("action") == "land_on_dog"]
+    if lands and lands[0].get("primitive_id") != "land-on-dog-v1":
+        return "land_on_dog did not use primitive land-on-dog-v1"
+    if lands and lands[0].get("beacon_epoch") is not None:
+        return "land_on_dog carried a beacon epoch"
+    if report.scenario in {"halt", "dog_dropout", "drone_dropout"} and not report.halted:
+        return "halt did not latch"
+    if report.scenario in {"uncertain", "timeout"}:
+        banned = {"play_warning", "stop", "land_on_dog", "return_home", "halt"}
+        if any(item.get("action") in banned for item in report.delivered):
+            return "uncertain or timeout delivered a presence command"
+    halt_at = [
+        index
+        for index, item in enumerate(report.timeline)
+        if item in {"cmd:halt", "gap:halt"}
+    ]
+    if halt_at:
+        later = report.timeline[max(halt_at) + 1 :]
+        if any(item.startswith("cmd:") for item in later):
+            return "a command was delivered after halt"
+    return None
+
+
+def _detail(problem: str | None, report: StoryReport) -> str:
+    if problem is not None:
+        return problem
+    if not report.gaps:
+        return "passed"
+    parts: list[str] = []
+    for item in report.gaps:
+        issues = item.get("issues")
+        numbers = ""
+        if isinstance(issues, list):
+            numbers = " ".join(f"#{issue}" for issue in issues)
+        parts.append(f"{item.get('action')} ({item.get('owner')} {numbers})".strip())
+    return "passed with known gaps: " + "; ".join(parts)
 
 
 def write_report(report: StoryReport, output: Path) -> None:
