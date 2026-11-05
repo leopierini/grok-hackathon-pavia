@@ -43,6 +43,26 @@ async def _rejected(tmp_path: Path, payload: dict[str, object], detail: str) -> 
     assert calls_of(services) == []
 
 
+def test_presence_actions_are_not_rewritten_into_a_walk(tmp_path: Path) -> None:
+    async def body() -> None:
+        for action in ("stop", "play_warning", "follow", "return_home"):
+            proposal = fixture("proposal.json")
+            body_payload = proposal["payload"]
+            assert isinstance(body_payload, dict)
+            proposal["payload"] = {**body_payload, "action": action}
+            await _rejected(
+                tmp_path / action,
+                move_payload(proposal=proposal),
+                "proposal action is not a dog step",
+            )
+        services, feature = opened(tmp_path / "approach")
+        command = command_of(await approve(feature, move_payload()))
+        assert payload_action(command) == "move_local"
+        assert calls_of(services) == []
+
+    run(body)
+
+
 def test_unknown_candidate_is_rejected(tmp_path: Path) -> None:
     async def body() -> None:
         proposal = fixture("proposal.json")

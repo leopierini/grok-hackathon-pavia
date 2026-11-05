@@ -81,6 +81,14 @@
       "reason": "Synthetic hold/landing request, subject to recipient local safety."
     },
     {
+      "primitive_id": "land-on-dog-v1",
+      "action": "land_on_dog",
+      "lease_ms": 500,
+      "camera_id": "downward",
+      "supervised": false,
+      "reason": "Synthetic land on the dog. This is not a floor landing."
+    },
+    {
       "primitive_id": "verified-takeoff-v1",
       "action": "takeoff",
       "lease_ms": 500,

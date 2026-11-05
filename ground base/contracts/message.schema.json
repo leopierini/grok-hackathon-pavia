@@ -1123,7 +1123,11 @@
             "switch_to_dog_vision",
             "approach",
             "stop",
-            "review"
+            "review",
+            "play_warning",
+            "follow",
+            "return_home",
+            "land_on_dog"
           ]
         },
         "image_direction": {
@@ -1177,7 +1181,11 @@
             "turn",
             "approach",
             "stop",
-            "review"
+            "review",
+            "play_warning",
+            "follow",
+            "return_home",
+            "land_on_dog"
           ]
         },
         "direction_hint": {
@@ -1235,6 +1243,20 @@
             }
           ]
         },
+        "warning_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "standoff_m": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "reason": {
           "type": "string"
         }
@@ -1277,7 +1299,11 @@
             "stand",
             "move_local",
             "turn",
-            "halt"
+            "halt",
+            "play_warning",
+            "follow",
+            "stop",
+            "return_home"
           ]
         },
         "lease_ms": {
@@ -1323,6 +1349,20 @@
           "minLength": 1,
           "maxLength": 160
         },
+        "warning_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "standoff_m": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
         "reason": {
           "type": "string"
         }
@@ -1366,7 +1406,8 @@
             "search_step",
             "track_step",
             "hover",
-            "land"
+            "land",
+            "land_on_dog"
           ]
         },
         "primitive_id": {
@@ -1428,8 +1469,15 @@
           ]
         },
         "beacon_epoch": {
-          "type": "integer",
-          "minimum": 0
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "reason": {
           "type": "string"

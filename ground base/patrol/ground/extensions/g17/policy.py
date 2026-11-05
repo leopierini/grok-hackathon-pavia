@@ -14,8 +14,10 @@ _PROPOSAL_ACTIONS = {
     "hold": "hover",
     "search": "search_step",
     "reposition": "track_step",
-    "stop": "land",
+    "land_on_dog": "land_on_dog",
 }
+_DOG_COMMANDS = frozenset({"play_warning", "follow", "stop", "return_home"})
+_USE_CONTEXT = object()
 _OPERATOR_ACTIONS = {
     "hold": "hover",
     "hover": "hover",
@@ -36,6 +38,9 @@ _PROPOSAL_FIELDS = frozenset(
         "evidence_frame_id",
         "candidate_id",
         "beacon_epoch",
+        "warning_id",
+        "text",
+        "standoff_m",
         "reason",
     }
 )
@@ -74,6 +79,12 @@ _DISTANCE_TEXT = re.compile(
 )
 
 
+class _DogCommand(Exception):
+    def __init__(self, command: dict[str, object]) -> None:
+        self.command = command
+        super().__init__("dog command")
+
+
 class _Refuse(Exception):
     def __init__(self, status: str, code: str, reason: str, recovery: bool) -> None:
         self.status = status
@@ -94,7 +105,7 @@ class CommandDraft:
     evidence_frame_id: str | None
     track_id: str | None
     camera_id: str
-    beacon_epoch: int
+    beacon_epoch: int | None
     reason: str
     proposal_id: str | None
     idempotency_key: str
@@ -115,6 +126,7 @@ class Decision:
     reason: str
     recovery_required: bool
     draft: CommandDraft | None
+    dog_command: Mapping[str, object] | None = None
 
 
 def peek_key(context: Mapping[str, object]) -> str | None:
@@ -139,6 +151,8 @@ def peek_key(context: Mapping[str, object]) -> str | None:
 def decide(context: Mapping[str, object]) -> Decision:
     try:
         draft = _decide(context)
+    except _DogCommand as ready:
+        return Decision(True, "ok", "", "approved", False, None, ready.command)
     except _Refuse as refused:
         return Decision(
             False,
@@ -178,17 +192,23 @@ def _from_proposal(context: Mapping[str, object], proposal: object) -> CommandDr
     _known_fields(body, _PROPOSAL_FIELDS, "proposal")
     _reject_motor_text(body)
     target = body.get("target_component")
-    if target == "dog":
-        _block("wrong_component")
-    if target != "drone":
-        _bad("target_component must be drone or dog")
     action_name = body.get("action")
-    if not isinstance(action_name, str) or action_name not in _PROPOSAL_ACTIONS:
-        _block("unsupported_action")
     direction = body.get("direction_hint")
     if direction not in _DIRECTIONS:
         _bad("direction_hint is not an image direction")
     _expired(proposal.get("expires_at"), _evaluated(context), required=True)
+    if target == "dog":
+        if action_name in _DOG_COMMANDS:
+            raise _DogCommand(_dog_command(proposal, body, context))
+        if action_name == "approach":
+            _block("dog_policy", code="deferred")
+        _block("wrong_component")
+    if target != "drone":
+        _bad("target_component must be drone or dog")
+    if action_name == "stop":
+        _block("stop_is_not_land")
+    if not isinstance(action_name, str) or action_name not in _PROPOSAL_ACTIONS:
+        _block("unsupported_action")
     return _issue(
         context,
         action=_PROPOSAL_ACTIONS[action_name],
@@ -202,6 +222,7 @@ def _from_proposal(context: Mapping[str, object], proposal: object) -> CommandDr
         simulated=_flag(proposal.get("simulated"), "simulated"),
         correlation=_optional_text(proposal.get("message_id"), "message_id"),
         key=_required_text(body, "proposal_id"),
+        beacon=_proposal_beacon(body, action_name),
     )
 
 
@@ -235,6 +256,7 @@ def _from_operator(context: Mapping[str, object], operator: object) -> CommandDr
         simulated=_flag(operator.get("simulated"), "simulated"),
         correlation=None,
         key=_required_text(operator, "request_id"),
+        beacon=_USE_CONTEXT,
     )
 
 
@@ -252,6 +274,7 @@ def _issue(
     simulated: bool,
     correlation: str | None,
     key: str,
+    beacon: object,
 ) -> CommandDraft:
     if context.get("halt_latched") is True and action not in _SAFE:
         _block("cancelled", code="cancelled", recovery=True)
@@ -270,7 +293,7 @@ def _issue(
         _block("supervised_conflicts_with_control")
     if action in _MOTION and not controlled and not (supervised and action == "search_step"):
         _block("controlled_motion_disabled")
-    if action == "takeoff" and not controlled:
+    if action in {"takeoff", "land_on_dog"} and not controlled:
         _block("controlled_motion_disabled")
     if flight == "unknown" and action not in _SAFE:
         _block("aircraft_state_unknown")
@@ -314,7 +337,7 @@ def _issue(
         evidence_frame_id=evidence,
         track_id=track,
         camera_id=camera_id,
-        beacon_epoch=_beacon(context, observation),
+        beacon_epoch=_resolve_beacon(beacon, context, observation),
         reason=_required_text(primitive, "reason"),
         proposal_id=proposal_id,
         idempotency_key=key,
@@ -425,7 +448,7 @@ def _lease(context: Mapping[str, object], primitive: Mapping[str, object], actio
 
 
 def _deadline(allowlist: Mapping[str, object], action: str, lease: int) -> int:
-    if action not in {"takeoff", "land"}:
+    if action not in {"takeoff", "land", "land_on_dog"}:
         return lease
     label = "takeoff_deadline_ms" if action == "takeoff" else "land_deadline_ms"
     value = allowlist.get(label)
@@ -486,6 +509,28 @@ def _require_calibration(
     ident = frame.get("camera_to_body_calibration_id")
     if calibration is not True or not isinstance(ident, str) or not ident.strip():
         _block("calibration_missing")
+
+
+def _proposal_beacon(body: Mapping[str, object], action: str) -> object:
+    """A land-on-dog proposal may name no beacon. Other actions keep the context epoch."""
+    if action != "land_on_dog" or "beacon_epoch" not in body:
+        return _USE_CONTEXT
+    value = body.get("beacon_epoch")
+    if value is None:
+        return None
+    return _nonnegative(value, "beacon_epoch")
+
+
+def _resolve_beacon(
+    beacon: object,
+    context: Mapping[str, object],
+    observation: Mapping[str, object],
+) -> int | None:
+    if beacon is _USE_CONTEXT:
+        return _beacon(context, observation)
+    if beacon is None:
+        return None
+    return _nonnegative(beacon, "beacon_epoch")
 
 
 def _beacon(context: Mapping[str, object], observation: Mapping[str, object]) -> int:
@@ -669,6 +714,82 @@ def _nonnegative(value: object, label: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         _bad(f"{label} must be a non-negative integer")
     return value
+
+
+def _dog_command(
+    proposal: Mapping[str, object],
+    body: Mapping[str, object],
+    context: Mapping[str, object],
+) -> dict[str, object]:
+    action = body.get("action")
+    if not isinstance(action, str) or action not in _DOG_COMMANDS:
+        _bad("action is not a dog presence command")
+    proposal_id = _required_text(body, "proposal_id")
+    command_id = proposal_id if proposal_id.startswith("cmd-") else f"cmd-{proposal_id}"
+    message_id = f"msg-{command_id}"
+    if len(command_id) > 160 or len(message_id) > 160:
+        _bad("proposal_id is too long for a command id")
+    reason = body.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        _bad("reason must be a string")
+    safety = context.get("safety_snapshot_id")
+    if not isinstance(safety, str) or not safety.strip() or len(safety.strip()) > 160:
+        _bad("safety_snapshot_id is required")
+    payload: dict[str, object] = {
+        "command_id": command_id,
+        "proposal_id": proposal_id,
+        "action": action,
+        "lease_ms": 500,
+        "motion": None,
+        "track_id": _optional_text(body.get("track_id"), "track_id"),
+        "beacon_epoch": _optional_beacon(body.get("beacon_epoch")),
+        "safety_snapshot_id": safety.strip(),
+        "reason": reason.strip(),
+    }
+    if action == "play_warning":
+        payload["warning_id"] = _short_text(body.get("warning_id"), "warning_id")
+        payload["text"] = _short_text(body.get("text"), "text")
+    if action == "follow":
+        payload["standoff_m"] = _standoff(body.get("standoff_m"))
+    sent_at = proposal.get("sent_at")
+    if not isinstance(sent_at, str) or not sent_at.strip():
+        _bad("sent_at must be a string")
+    return {
+        "protocol_version": "2.0-draft",
+        "message_id": message_id,
+        "mission_id": _required_text(proposal, "mission_id"),
+        "epoch": _nonnegative(proposal.get("epoch"), "epoch"),
+        "seq": _nonnegative(proposal.get("seq"), "seq"),
+        "sent_at": sent_at,
+        "source": "ground",
+        "destination": "dog",
+        "kind": "dog.command",
+        "correlation_id": _optional_text(proposal.get("message_id"), "message_id"),
+        "expires_at": proposal.get("expires_at"),
+        "simulated": _flag(proposal.get("simulated"), "simulated"),
+        "payload": payload,
+    }
+
+
+def _optional_beacon(value: object) -> int | None:
+    if value is None:
+        return None
+    return _nonnegative(value, "beacon_epoch")
+
+
+def _short_text(value: object, label: str) -> str:
+    if not isinstance(value, str) or not value.strip() or len(value.strip()) > 160:
+        _bad(f"{label} must be a short string")
+    return value.strip()
+
+
+def _standoff(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        _bad("standoff_m must be a positive number")
+    number = float(value)
+    if not math.isfinite(number) or number <= 0:
+        _bad("standoff_m must be a positive number")
+    return number
 
 
 def _bad(reason: str) -> NoReturn:

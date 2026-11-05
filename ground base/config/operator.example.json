@@ -1,0 +1,36 @@
+{
+  "dog_transport": "ethernet",
+  "connection_profiles": {
+    "dog": "dog.ethernet",
+    "drone": "tello-edu-ap",
+    "pi": "pi-usb",
+    "vision": "grok-laptop"
+  },
+  "modes": {
+    "dog": "fake",
+    "drone": "fake",
+    "grok": "fake"
+  },
+  "pi_data_path": "usb",
+  "vision": {
+    "model_id": "CONFIGURE_VERIFIED_IMAGE_MODEL",
+    "prompt_version": "patrol-demo-v2.0"
+  },
+  "cameras": {
+    "drone": ["front", "downward"],
+    "dog": ["front"]
+  },
+  "evidence_age_ms": 3000,
+  "image_sample_ms": 1000,
+  "vision_timeout_ms": 5000,
+  "command_lease_ms": 500,
+  "flight_profile": {
+    "name": "proposed_4m_floor_agl",
+    "enabled": false
+  },
+  "calibration_id": null,
+  "dog_range_max_m": null,
+  "drone_horizontal_max_m": null,
+  "output_root": "artifacts/operator-runs",
+  "pace_s": 0.12
+}

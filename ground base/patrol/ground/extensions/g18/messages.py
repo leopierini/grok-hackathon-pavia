@@ -61,7 +61,7 @@ _ACK_STATES = frozenset(
     {"accepted", "running", "completed", "rejected", "cancelled", "failed", "unknown"}
 )
 _MOTIONS = frozenset({"stationary", "moving", "airborne", "grounded", "unknown"})
-_ACTIONS = frozenset({"takeoff", "search_step", "track_step", "hover", "land"})
+_ACTIONS = frozenset({"takeoff", "search_step", "track_step", "hover", "land", "land_on_dog"})
 _HEIGHTS = frozenset({"floor_agl", "takeoff_relative", "unknown"})
 _CAMERAS = frozenset({"front", "downward"})
 
@@ -97,7 +97,7 @@ class AckBody:
 class CommandBody:
     command_id: str
     action: str
-    beacon_epoch: int
+    beacon_epoch: int | None
     track_id: str | None
 
 
@@ -157,7 +157,7 @@ def parse_command(value: Mapping[str, object]) -> tuple[Envelope, CommandBody]:
     body = CommandBody(
         command_id=_text(payload["command_id"], "command_id"),
         action=_choice(payload["action"], "action", _ACTIONS),
-        beacon_epoch=_integer(payload["beacon_epoch"], "beacon_epoch"),
+        beacon_epoch=_optional_epoch(payload["beacon_epoch"], "beacon_epoch"),
         track_id=_optional_text(payload["track_id"], "track_id"),
     )
     _text(payload["primitive_id"], "primitive_id")
@@ -249,6 +249,12 @@ def _flag(value: object, label: str) -> bool:
     if not isinstance(value, bool):
         raise fault("invalid_input", f"{label} must be a boolean")
     return value
+
+
+def _optional_epoch(value: object, label: str) -> int | None:
+    if value is None:
+        return None
+    return _integer(value, label)
 
 
 def _integer(value: object, label: str, *, minimum: int = 0) -> int:

@@ -1038,8 +1038,12 @@ def _merged_action(
         semantic = _payload(proposal).get("action")
         if semantic in _STEP_ACTIONS or semantic == "halt":
             return str(semantic)
-        if isinstance(semantic, str) and semantic:
+        # approach is the published homing step. Any other proposal word is refused
+        # so a stop, a warning, a follow, or a return home cannot become a walk.
+        if semantic == "approach":
             return "move_local"
+        if isinstance(semantic, str) and semantic:
+            raise _Reject("proposal action is not a dog step")
     return "move_local"
 
 

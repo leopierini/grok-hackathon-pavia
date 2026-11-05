@@ -74,7 +74,11 @@ _ACK_PAYLOAD = frozenset(
 )
 _SOURCES = frozenset({"ground", "drone", "dog", "pi", "vision", "operator"})
 _DESTINATIONS = frozenset({"ground", "drone", "dog", "pi", "vision", "all"})
-_ACTIONS = frozenset({"stand", "move_local", "turn", "halt"})
+_ACTIONS = frozenset(
+    {"stand", "move_local", "turn", "halt", "play_warning", "follow", "stop", "return_home"}
+)
+_STILL_ACTIONS = frozenset({"halt", "play_warning", "follow", "stop", "return_home"})
+_COMMAND_OPTIONAL = frozenset({"warning_id", "text", "standoff_m"})
 _ACK_STATES = frozenset(
     {"accepted", "running", "completed", "rejected", "cancelled", "failed", "unknown"}
 )
@@ -434,15 +438,16 @@ def parse_command(value: object) -> IssuedCommand:
     if envelope["source"] != "ground" or envelope["destination"] != "dog":
         raise fault("invalid_input", "dog command must be sent from ground to the dog")
     payload = as_dict(envelope["payload"], "dog command payload")
-    _exact(payload, _COMMAND_PAYLOAD, "dog command payload")
+    _allow(payload, _COMMAND_PAYLOAD, _COMMAND_OPTIONAL, "dog command payload")
     action = _token(payload["action"], "action", _ACTIONS)
     lease_ms = _bounded_int(payload["lease_ms"], "lease_ms", minimum=1, maximum=500)
     motion = payload["motion"]
     map_epoch: int | None
-    if action == "halt":
+    if action in _STILL_ACTIONS:
         if motion is not None:
-            raise fault("invalid_input", "halt motion must be null")
+            raise fault("invalid_input", f"{action} motion must be null")
         map_epoch = None
+        _presence_fields(payload, action)
     else:
         parsed_motion = _motion(motion)
         map_epoch = parsed_motion
@@ -705,6 +710,33 @@ def _motion(value: object) -> int:
     _text(body["candidate_id"], "candidate_id")
     _text(body["snapshot_id"], "snapshot_id")
     return _whole(body["map_epoch"], "map_epoch")
+
+
+def _presence_fields(payload: Mapping[str, object], action: str) -> None:
+    if action == "play_warning":
+        if "warning_id" in payload:
+            _text(payload["warning_id"], "warning_id")
+        if "text" in payload:
+            _text(payload["text"], "text")
+    if action == "follow" and "standoff_m" in payload:
+        value = payload["standoff_m"]
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+            or float(value) <= 0
+        ):
+            raise fault("invalid_input", "standoff_m must be a positive number")
+
+
+def _allow(
+    body: Mapping[str, object],
+    required: frozenset[str],
+    optional: frozenset[str],
+    label: str,
+) -> None:
+    if set(body) - required - optional or required - set(body):
+        raise fault("invalid_input", f"{label} keys do not match the contract")
 
 
 def _exact(body: Mapping[str, object], allowed: frozenset[str], label: str) -> None:

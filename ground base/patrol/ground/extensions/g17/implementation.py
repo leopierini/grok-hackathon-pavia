@@ -46,7 +46,7 @@ class _Issued:
     lease_ms: int
     deadline_ms: int
     camera_id: str
-    beacon_epoch: int
+    beacon_epoch: int | None
     action: str
     supervised: bool
 
@@ -84,6 +84,8 @@ class DroneCommandFeature:
                 Decision(False, "blocked", "stale_ticket", "stale_ticket", True, None),
             )
         decision = decide(context)
+        if decision.ok and decision.dog_command is not None:
+            return self._forward_dog(request, decision.dog_command)
         if not decision.ok or decision.draft is None:
             return self._refused(request, decision)
         draft = decision.draft
@@ -206,6 +208,40 @@ class DroneCommandFeature:
             }
         )
         return FeatureResult("ok", data, (issued.event,), None)
+
+    def _forward_dog(
+        self,
+        request: FeatureRequest,
+        command: Mapping[str, object],
+    ) -> FeatureResult:
+        payload = command.get("payload")
+        action = payload.get("action") if isinstance(payload, Mapping) else None
+        command_id = payload.get("command_id") if isinstance(payload, Mapping) else None
+        data = freeze_map(
+            {
+                "command": _copy(command),
+                "command_id": command_id,
+                "primitive_id": None,
+                "action": action,
+                "reason": "approved",
+                "replayed": False,
+                "supervised": False,
+                "live_call_count": self._live_calls(),
+            }
+        )
+        event = GroundEvent(
+            "decision_received",
+            request.ticket if isinstance(request.ticket, Ticket) else None,
+            freeze_map(
+                {
+                    "kind": "dog.command",
+                    "command_id": command_id,
+                    "action": action,
+                    "reason": "approved",
+                }
+            ),
+        )
+        return FeatureResult("ok", data, (event,), None)
 
     def _refused(self, request: FeatureRequest, decision: Decision) -> FeatureResult:
         code = decision.code or "rejected"

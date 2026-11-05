@@ -43,6 +43,18 @@ acceptance, and clock negotiation have not been supplied.
 The v1 `run_route`/`inspect` APIs cannot be used as v2 RSSI or scouting transports.
 This repository's simulated success does not establish robot or flight readiness.
 
+## Operator console
+
+Ground Mission Control is the local Next.js console. Setup, rehearsal, halt,
+recovery, and logs are in [docs/ground/operator-guide.md](docs/ground/operator-guide.md).
+
+```powershell
+.\scripts\ground-mission-control.ps1
+```
+
+The UI is `http://127.0.0.1:3000`. Simulation does not open hardware. Real mode
+stays refused until teammate transports and physical acceptance exist.
+
 ## Verify
 
 ```powershell
