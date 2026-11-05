@@ -52,12 +52,23 @@ def test_placeholder_model_is_refused() -> None:
         refuse_placeholder_model(PLACEHOLDER_MODEL)
 
 
-def test_real_reasoner_is_refused() -> None:
+def test_real_reasoner_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
     from patrol.contract import AdapterError
 
+    monkeypatch.delenv("XAI_API_KEY", raising=False)
     with pytest.raises(AdapterError) as caught:
         create_reasoner("real", {}, "/tmp")
     assert caught.value.code == "unsupported"
+    assert "XAI_API_KEY is unset" in str(caught.value)
+    assert "no model request was sent" in str(caught.value)
+
+    monkeypatch.setenv("XAI_API_KEY", "present-but-not-sent")
+    with pytest.raises(AdapterError) as present:
+        create_reasoner("real", {}, "/tmp")
+    assert present.value.code == "unsupported"
+    assert "vision.decision" in str(present.value)
+    assert "No model request was sent" in str(present.value)
+    assert "present-but-not-sent" not in str(present.value)
 
 
 def test_vision_module_exits_2() -> None:

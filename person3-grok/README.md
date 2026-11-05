@@ -38,4 +38,7 @@ python3 -m patrol.bridge.probe
 python3 -m patrol.vision_v2   # exits 2; host, port, and auth are unset
 ```
 
-No API key is read. No host or port is invented.
+No API key is required for these tests. `create_reasoner("real")` reads
+`XAI_API_KEY` only to fail closed: it does not call xAI. The demo image call
+is Ground's `patrol.ground.signal.assess_frame`. See
+[handoff/INTEGRATION.md](handoff/INTEGRATION.md).

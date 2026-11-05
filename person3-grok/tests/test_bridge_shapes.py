@@ -39,6 +39,13 @@ def test_follow_and_land_commands() -> None:
     assert follow["source"] == "ground"
     assert follow["destination"] == "dog"
     assert follow["payload"]["action"] == "follow"
+    assert follow["payload"]["standoff_m"] == 2.0
+    warning = command_message(
+        Intent("play_warning", "dog", warning_id="go-away", text="go away"),
+        **_common(),
+    )
+    assert warning["payload"]["warning_id"] == "go-away"
+    assert warning["payload"]["text"] == "go away"
     land = command_message(Intent("land_on_dog", "drone"), **_common())
     assert land["kind"] == "drone.command"
     assert land["destination"] == "drone"

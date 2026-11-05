@@ -116,6 +116,12 @@ def command_message(
             "safety_snapshot_id": "safety-presence-001",
             "reason": _reason(intent),
         }
+        if intent.warning_id is not None:
+            payload["warning_id"] = intent.warning_id
+        if intent.text is not None:
+            payload["text"] = intent.text
+        if intent.standoff_m is not None:
+            payload["standoff_m"] = intent.standoff_m
         kind = "dog.command"
         destination = "dog"
     return _envelope(
