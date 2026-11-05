@@ -66,10 +66,18 @@ export function MotionControls({ session }: { session: SessionValue | null }) {
         Forward velocity, side velocity, turn rate, and step length are sent with the dog step. Turn rate is the yaw command.
       </p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        <button type="button" className="min-h-11 rounded-full bg-surface-2 px-4 text-sm font-medium" disabled={blocked || snapshot?.patrol?.phase === "waiting"} onClick={() => void run?.("start_patrol")}>
-          Start patrol
+        <button
+          type="button"
+          className="min-h-11 rounded-full bg-[#E85A67] px-4 text-sm font-bold text-white"
+          disabled={blocked}
+          onClick={async () => {
+            const result = await run?.("start_patrol");
+            if (result?.ok) window.location.href = "/live";
+          }}
+        >
+          Start patrol (runs the whole demo)
         </button>
-        <button type="button" className="min-h-11 rounded-full border border-line px-4 text-sm" disabled={blocked || snapshot?.patrol?.phase !== "waiting"} onClick={() => void run?.("stop_patrol")}>
+        <button type="button" className="min-h-11 rounded-full border border-line px-4 text-sm" disabled={blocked} onClick={() => void run?.("stop_patrol")}>
           Stop patrol
         </button>
         <button type="button" className="min-h-11 rounded-full border border-line px-4 text-sm" disabled={blocked} onClick={() => void run?.("probe")}>

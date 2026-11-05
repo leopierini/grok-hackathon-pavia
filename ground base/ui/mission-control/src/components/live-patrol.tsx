@@ -98,7 +98,6 @@ function Camera({ camera, reading, live }: { camera: "drone" | "dog"; reading: R
 export function LivePatrol() {
   const [state, setState] = useState<LiveState | null>(null);
   const [note, setNote] = useState<string>("");
-  const [say, setSay] = useState("");
 
   const refresh = useCallback(async () => {
     try {
@@ -150,9 +149,10 @@ export function LivePatrol() {
       <header className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-4">
         <div className="mr-2">
           <h1 className="font-display text-2xl font-semibold">Live patrol</h1>
-          <p className="text-sm text-muted">Real drone, real dog, xAI Grok. Ground is the only process that moves them.</p>
+          <p className="text-sm text-muted">One Start runs the whole demo: takeoff, scan, detect, track, dog approach, warning, landing. Halt stops everything.</p>
         </div>
         <span className="rounded-full bg-info-bg px-3 py-1 font-mono text-sm font-semibold uppercase text-info">{state?.phase ?? "…"}</span>
+        {state && typeof (state as { elapsed_s?: number }).elapsed_s === "number" ? <span className="font-mono text-xs text-muted">{(state as { elapsed_s?: number }).elapsed_s}s</span> : null}
         {incident ? <span className="font-mono text-xs text-muted">{incident.id} · {incident.detected_at.slice(11, 19)}Z</span> : null}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           {!connected ? (
@@ -160,10 +160,7 @@ export function LivePatrol() {
           ) : (
             <button type="button" className={button} onClick={() => act("disconnect")}>Disconnect</button>
           )}
-          <button type="button" className={`${button} bg-ok-bg text-ok`} disabled={!connected} onClick={() => act("start")}>Start patrol</button>
-          {state?.config.takeoff ? (
-            <button type="button" className={`${button} bg-ok-bg text-ok`} disabled={!connected} onClick={() => act("start", { takeoff: true })}>Start + takeoff</button>
-          ) : null}
+          <button type="button" className={`${button} bg-ok-bg text-ok`} onClick={() => act("start")}>Start patrol</button>
           <button type="button" className={`${button} bg-warn-bg text-warn`} disabled={!connected} onClick={() => act("stop")}>Stop patrol</button>
           <HaltButton onHalt={halt} />
         </div>
@@ -212,22 +209,11 @@ export function LivePatrol() {
             { label: "Standing", value: dog.standing },
             { label: "Avoidance", value: dog.avoidance_enabled },
             { label: "Motion lock", value: dog.motion_lock ?? "none" },
+            { label: "Steps taken", value: dog.moves ?? 0 },
             { label: "Grok sees", value: readings.dog?.reason ?? "—" },
             { label: "Error", value: String(dog.error ?? dog.frame_error ?? "none") },
           ]} />
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className={button} disabled={!connected} onClick={() => act("dog_stand")}>Stand</button>
-            <button type="button" className={button} disabled={!connected} onClick={() => act("dog_step", { direction: "left" })}>Turn left</button>
-            <button type="button" className={button} disabled={!connected} onClick={() => act("dog_step", { direction: "forward" })}>Step</button>
-            <button type="button" className={button} disabled={!connected} onClick={() => act("dog_step", { direction: "back" })}>Back</button>
-            <button type="button" className={button} disabled={!connected} onClick={() => act("dog_step", { direction: "right" })}>Turn right</button>
-          </div>
-          <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); if (say.trim()) void act("dog_say", { text: say }); }}>
-            <input className="min-h-11 flex-1 rounded-xl border border-line bg-surface px-3 text-sm" placeholder="Say on the dog speaker…"
-              value={say} onChange={(event) => setSay(event.target.value)} />
-            <button type="submit" className={button} disabled={!connected}>Speak</button>
-          </form>
-          <p className="text-xs text-muted">The mission never walks the dog. Each step is one operator-pressed, speed-limited segment.</p>
+          <p className="text-xs text-muted">Automatic: the dog turns toward the person, walks in 1 s steps (0.3 m/s cap), checks LiDAR before every forward step, and stops at standoff.</p>
         </section>
 
         <section className="space-y-3 rounded-2xl border border-line bg-surface p-4">

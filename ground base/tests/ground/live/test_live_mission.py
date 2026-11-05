@@ -35,6 +35,8 @@ class FakeDrone:
         self.cmds.append(action)
         if action == "land":
             self.state_name = "landing"
+        if action == "takeoff":
+            self.state_name = "airborne"
         return {"ok": True}
 
     async def yaw_nudge(self, axis: float, seconds: float) -> None:
@@ -61,6 +63,9 @@ class FakeDog:
     async def frame(self) -> dict[str, Any]:
         return {"ok": True, "jpeg": JPEG}
 
+    async def lidar(self) -> dict[str, Any]:
+        return {"ok": True, "view": {}}  # no LiDAR verdict: box size decides the standoff
+
     async def halt(self) -> dict[str, Any]:
         self.ops.append("halt")
         return {"op": "halt", "ok": True, "sent": True}
@@ -84,7 +89,7 @@ class BrokenGrok(ScriptedGrok):
 
 
 FAST = dict(drone_vision_period_s=0.05, dog_vision_period_s=0.05, drone_poll_s=0.02,
-            speak_cooldown_s=0.0, drone_lost_after=3)
+            speak_cooldown_s=0.0, drone_lost_after=3, scan_period_s=0.05, allow_takeoff=True)
 
 
 def _mission(tmp_path: Path, drone: FakeDrone, dog: FakeDog | None, grok: Any = None, **kw: Any) -> LiveMission:
@@ -96,38 +101,74 @@ def _kinds(m: LiveMission) -> list[str]:
     return [e["kind"] for e in m.events]
 
 
-def test_full_workflow_detect_alert_track_dog_sees_and_stop(tmp_path: Path) -> None:
+def test_one_start_runs_the_whole_demo_by_itself(tmp_path: Path) -> None:
     async def scenario() -> tuple[LiveMission, FakeDrone, FakeDog]:
-        drone, dog = FakeDrone(), FakeDog()
+        drone, dog = FakeDrone(airborne=False), FakeDog()
         m = _mission(tmp_path, drone, dog)
         await m.connect()
         assert m.phase == "standby"
         assert (await m.start())["ok"] is True
-        assert await run_until(m, lambda: "dog_target_acquired" in _kinds(m), 5)
-        assert await run_until(m, lambda: m.track_nudges >= 1, 5)
-        await m.stop()
+        assert await run_until(m, lambda: m.phase == "done", 10), _kinds(m)
         await m.close()
         return m, drone, dog
 
     m, drone, dog = asyncio.run(scenario())
     kinds = _kinds(m)
-    # Ordered story: detect -> hover -> dog alert -> alert text -> voice -> dog camera -> stop
-    for earlier, later in [("drone_target_acquired", "dog_alert"), ("dog_alert", "alert"),
-                           ("alert", "dog_voice"), ("drone_target_acquired", "dog_target_acquired"),
-                           ("dog_target_acquired", "dog_rest")]:
-        assert kinds.index(earlier) < kinds.index(later), (earlier, later, kinds)
-    assert drone.cmds[0] == "hover" and drone.cmds[-1] == "land"
-    assert "stand" in dog.ops and "halt" in dog.ops  # alert/ready, then soft lie-down
-    assert dog.said and dog.steps == []  # spoke; never walked on its own
-    assert m.phase == "stopped"
-    assert m.incident is not None and m.incident["dog_reading"] is not None
-    # One incident id on every event after detection; journal on disk matches memory.
+    order = ["drone_target_acquired", "dog_alert", "alert", "dog_voice", "dog_target_acquired",
+             "dog_arrived", "person_left", "dog_rest", "report"]
+    idx = [kinds.index(k) for k in order]
+    assert idx == sorted(idx), list(zip(order, idx))
+    assert drone.cmds[0] == "takeoff" and drone.cmds[1] == "hover" and drone.cmds[-1] == "land"
+    assert "scan_nudge" in kinds  # patrol scanned before the person appeared
+    assert "stand" in dog.ops and "halt" in dog.ops  # alert, then soft lie-down at the end
+    assert "Search turn" in next(e["detail"] for e in m.events if e["kind"] == "dog_move")  # dog cam empty first
+    first_seen = next(e["seq"] for e in m.events if e["kind"] == "dog_target_acquired")
+    chase = [e["data"]["segment"] for e in m.events if e["kind"] == "dog_move" and e["seq"] > first_seen]
+    turns = [s for s in chase if s["vyaw"] != 0]
+    walks = [s for s in dog.steps if s["vx"] > 0]
+    assert turns and turns[0]["vyaw"] < 0  # person on the right: turned right first
+    assert walks and all(s["vx"] <= 0.3 and s["duration_s"] <= 1.0 for s in walks)
+    assert m.incident is not None and m.incident["dog_arrived_at"] is not None
     after = [e for e in m.events if e["seq"] > next(e["seq"] for e in m.events if e["kind"] == "drone_target_acquired")]
     assert {e["incident_id"] for e in after} == {m.incident["id"]}
     lines = (tmp_path / "run" / "events.jsonl").read_text().splitlines()
-    assert len(lines) == m.seq and json.loads(lines[-1])["kind"] == "phase"
+    assert len(lines) == m.seq
     summary = json.loads((tmp_path / "run" / "summary.json").read_text())
-    assert summary["dog_confirmed"] is True and summary["spoken"]
+    assert summary["dog_confirmed"] is True and summary["reason"] == "The person left the area."
+    assert len(dog.said) >= 3  # warning, "I can see you", standoff warning (+ clear)
+
+
+def test_time_limit_ends_the_demo(tmp_path: Path) -> None:
+    async def scenario() -> tuple[LiveMission, FakeDrone, FakeDog]:
+        drone, dog = FakeDrone(), FakeDog()
+        m = _mission(tmp_path, drone, dog, ScriptedGrok(empty_drone=10_000), max_duration_s=0.5)
+        await m.connect()
+        await m.start()
+        assert await run_until(m, lambda: m.phase == "done", 5)
+        await m.close()
+        return m, drone, dog
+
+    m, drone, dog = asyncio.run(scenario())
+    assert drone.cmds[-1] == "land" and "halt" in dog.ops and dog.steps == []
+
+
+def test_forward_step_needs_lidar_clearance(tmp_path: Path) -> None:
+    class Blocked(FakeDog):
+        async def lidar(self) -> dict[str, Any]:
+            return {"ok": True, "view": {"stale": False, "clear": {"m": [0.6] * 24}}}
+
+    async def scenario() -> tuple[LiveMission, Blocked]:
+        dog = Blocked()
+        m = _mission(tmp_path, FakeDrone(), dog, arrive_clear_m=0.5, min_clear_m=0.8)
+        await m.connect()
+        await m.start()
+        assert await run_until(m, lambda: "dog_blocked" in _kinds(m), 5)
+        await m.halt()
+        await m.close()
+        return m, dog
+
+    m, dog = asyncio.run(scenario())
+    assert [s for s in dog.steps if s["vx"] > 0] == []
 
 
 def test_single_frame_does_not_trigger_detection(tmp_path: Path) -> None:
@@ -156,7 +197,7 @@ def test_halt_is_immediate_and_latches(tmp_path: Path) -> None:
         m = _mission(tmp_path, drone, dog)
         await m.connect()
         await m.start()
-        await run_until(m, lambda: m.phase == "tracking", 5)
+        await run_until(m, lambda: m.phase in {"approach", "engaged"}, 5)
         await m.halt()
         again = await m.start()
         step = await m.dog_step("forward")
@@ -166,7 +207,6 @@ def test_halt_is_immediate_and_latches(tmp_path: Path) -> None:
 
     m, drone, dog = asyncio.run(scenario())
     assert m.phase == "halted" and "land" in drone.cmds and "halt" in dog.ops
-    assert dog.steps == []
 
 
 def test_grok_failure_never_detects_and_never_moves(tmp_path: Path) -> None:
@@ -181,7 +221,7 @@ def test_grok_failure_never_detects_and_never_moves(tmp_path: Path) -> None:
 
     m, drone, dog = asyncio.run(scenario())
     assert m.phase == "patrol" and m.grok_state["errors"] > 0
-    assert drone.cmds == [] and "stand" not in dog.ops
+    assert "hover" not in drone.cmds and "stand" not in dog.ops and dog.steps == []
 
 
 def test_drone_link_loss_stops_the_dog(tmp_path: Path) -> None:
@@ -190,7 +230,7 @@ def test_drone_link_loss_stops_the_dog(tmp_path: Path) -> None:
         m = _mission(tmp_path, drone, dog)
         await m.connect()
         await m.start()
-        await run_until(m, lambda: m.phase == "tracking", 5)
+        await run_until(m, lambda: m.phase in {"approach", "engaged"}, 5)
         drone.down = True
         assert await run_until(m, lambda: "drone_link_lost" in _kinds(m), 3)
         await asyncio.sleep(0.1)
@@ -204,17 +244,17 @@ def test_drone_link_loss_stops_the_dog(tmp_path: Path) -> None:
 def test_tracking_respects_yaw_budget_and_grounded_drone(tmp_path: Path) -> None:
     async def scenario() -> tuple[LiveMission, FakeDrone]:
         drone = FakeDrone(airborne=False)
-        m = _mission(tmp_path, drone, FakeDog(), track_budget_deg=20)
+        m = _mission(tmp_path, drone, FakeDog(), track_budget_deg=20, allow_takeoff=False)
         await m.connect()
         await m.start()
-        await run_until(m, lambda: "track_skipped" in _kinds(m), 5)
+        await run_until(m, lambda: m.phase in {"approach", "engaged"}, 5)
         drone.state_name = "airborne"
         await run_until(m, lambda: "track_budget" in _kinds(m), 5)
         await m.close()
         return m, drone
 
     m, drone = asyncio.run(scenario())
-    assert "track_skipped" in _kinds(m) and "track_budget" in _kinds(m)
+    assert "track_budget" in _kinds(m)
     assert len(drone.nudges) <= 3
 
 

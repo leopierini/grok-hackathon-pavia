@@ -54,7 +54,7 @@ export function HomeSession() {
     <div className="space-y-3">
       <Panel title="Patrol">
         <p className="text-sm">
-          Start patrol asks the drone to search. It does not send a dog velocity. The dog is called only after the drone reports an intruder, and that call is <span className="font-mono">find_drone</span>. Stop patrol asks the dog to return home. Landing is called only when the AI situation is safe to land.
+          Start patrol runs the whole live demo by itself: the drone takes off and scans, Grok finds the person, the drone hovers and tracks, the dog stands, warns, walks to the person and holds a standoff, and when the person has left the drone lands and the dog lies down. Watch it on <a className="font-semibold underline" href="/live">Live patrol</a>. Halt stops everything at once.
         </p>
         <p className="mt-2 text-sm">{snapshot.patrol?.detail ?? "Patrol is idle."}</p>
         <p className="mt-1 text-sm text-muted">Situation {snapshot.patrol?.situation ?? "awaiting_ai"}. {snapshot.patrol?.summary}</p>

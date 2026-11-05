@@ -29,47 +29,50 @@ class RealGrok:
 
 
 class ScriptedGrok:
-    """Simulation only. Drone frames: empty for ``empty_drone`` calls, then a person
-    drifting right. Dog frames: empty for ``empty_dog`` calls, then a person."""
+    """Simulation only. Drone: empty for ``empty_drone`` calls, then a person.
+    Dog: empty for ``empty_dog`` calls, then a person off to the right who grows as
+    the dog approaches. After ``leave_after`` visible dog frames the person leaves
+    and both cameras report empty."""
 
     name = "scripted"
 
-    def __init__(self, empty_drone: int = 2, empty_dog: int = 1) -> None:
+    def __init__(self, empty_drone: int = 2, empty_dog: int = 1, leave_after: int | None = 9) -> None:
         self.empty_drone = empty_drone
         self.empty_dog = empty_dog
+        self.leave_after = leave_after
         self.calls = {"drone": 0, "dog": 0}
+        self.left = False
+
+    @staticmethod
+    def _empty(camera: str) -> dict[str, Any]:
+        return {"camera": camera, "model_id": "scripted", "target_state": "not_visible", "confidence": None,
+                "box_xyxy_norm": None, "reason": "An empty gallery floor.", "latency_ms": 5, "simulated": True}
 
     def assess(self, jpeg: bytes, camera: str) -> dict[str, Any]:
         n = self.calls.get(camera, 0)
         self.calls[camera] = n + 1
         empty = self.empty_drone if camera == "drone" else self.empty_dog
-        if n < empty:
-            return {
-                "camera": camera,
-                "model_id": "scripted",
-                "target_state": "not_visible",
-                "confidence": None,
-                "box_xyxy_norm": None,
-                "reason": "An empty gallery floor.",
-                "latency_ms": 5,
-                "simulated": True,
-            }
-        cx = min(0.8, 0.45 + 0.08 * (n - empty))
-        return {
-            "camera": camera,
-            "model_id": "scripted",
-            "target_state": "person_visible",
-            "confidence": 0.9,
-            "box_xyxy_norm": [cx - 0.08, 0.2, cx + 0.08, 0.85],
-            "reason": "A person in a dark jacket is standing in the gallery.",
-            "latency_ms": 5,
-            "simulated": True,
-        }
+        if n < empty or self.left:
+            return self._empty(camera)
+        k = n - empty
+        if camera == "dog":
+            if self.leave_after is not None and k >= self.leave_after:
+                self.left = True
+                return self._empty(camera)
+            cx = 0.72 if k == 0 else 0.5
+            h = min(0.8, 0.3 + 0.07 * k)
+            box = [cx - 0.08, 0.5 - h / 2, cx + 0.08, 0.5 + h / 2]
+        else:
+            cx = min(0.8, 0.45 + 0.08 * k)
+            box = [cx - 0.08, 0.2, cx + 0.08, 0.85]
+        return {"camera": camera, "model_id": "scripted", "target_state": "person_visible", "confidence": 0.9,
+                "box_xyxy_norm": box, "reason": "A person in a dark jacket is standing in the gallery.",
+                "latency_ms": 5, "simulated": True}
 
     def alert(self, observations: list[Mapping[str, object]]) -> dict[str, str]:
         cams = ", ".join(sorted({str(o.get("camera")) for o in observations}))
         return {
-            "alert": f"Person detected in the closed gallery ({cams} camera). Dog is on alert; drone is tracking.",
+            "alert": f"Person detected in the closed gallery ({cams} camera). Dog is responding; drone is tracking.",
             "spoken": DEFAULT_SPOKEN,
             "model_id": "scripted",
         }

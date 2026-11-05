@@ -17,8 +17,8 @@ MODE="${1:-sim}"
 case "$MODE" in
   sim)        DRONE_ARGS=(--fake --port 8799); export GROUND_LIVE_DRONE=http://127.0.0.1:8799 GROUND_LIVE_DOG=sim GROUND_LIVE_GROK=fake GROUND_LIVE_ARM_DOG=1 GROUND_LIVE_TAKEOFF=1 ;;
   sim-grok)   DRONE_ARGS=(--fake --port 8799); export GROUND_LIVE_DRONE=http://127.0.0.1:8799 GROUND_LIVE_DOG=sim GROUND_LIVE_GROK=real GROUND_LIVE_ARM_DOG=1 GROUND_LIVE_TAKEOFF=1 ;;
-  real)       DRONE_ARGS=(--port 8766); export GROUND_LIVE_DRONE=http://127.0.0.1:8766 GROUND_LIVE_DOG=ethernet GROUND_LIVE_GROK=real GROUND_LIVE_ARM_DOG=1 GROUND_LIVE_TAKEOFF=0 ;;
-  real-nodog) DRONE_ARGS=(--port 8766); export GROUND_LIVE_DRONE=http://127.0.0.1:8766 GROUND_LIVE_DOG=none GROUND_LIVE_GROK=real GROUND_LIVE_TAKEOFF=0 ;;
+  real)       DRONE_ARGS=(--port 8766); export GROUND_LIVE_DRONE=http://127.0.0.1:8766 GROUND_LIVE_DOG=ethernet GROUND_LIVE_GROK=real GROUND_LIVE_ARM_DOG=1 GROUND_LIVE_TAKEOFF=1 ;;
+  real-nodog) DRONE_ARGS=(--port 8766); export GROUND_LIVE_DRONE=http://127.0.0.1:8766 GROUND_LIVE_DOG=none GROUND_LIVE_GROK=real GROUND_LIVE_TAKEOFF=1 ;;
   *) echo "usage: $0 sim|sim-grok|real|real-nodog" >&2; exit 2 ;;
 esac
 

@@ -105,6 +105,17 @@ def create_app(token: str, runs_root: Path) -> FastAPI:
         if name == "halt":
             # The header Halt also halts the live mission, first and without waiting.
             asyncio.create_task(live.halt())
+        if name == "start_patrol":
+            # Home Start patrol runs the whole live demo by itself.
+            started = await live.auto_start(request.app.state.host.dog_link is not None)
+            status = 200 if started.get("ok") else 409
+            return JSONResponse({**started, "status": status, "snapshot": request.app.state.host.snapshot},
+                                status_code=status)
+        if name == "stop_patrol":
+            stopped = await live.stop()
+            status = 200 if stopped.get("ok") else 409
+            return JSONResponse({**stopped, "status": status, "snapshot": request.app.state.host.snapshot},
+                                status_code=status)
         if name in {"dog_test", "dog_view"} and live.owns_dog:
             return JSONResponse(
                 _fail("rejected", "The live mission holds the dog link. Disconnect it on the Live screen first."),

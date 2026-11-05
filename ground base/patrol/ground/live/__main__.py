@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     dog = None
     if args.dog != "none":
         # Operator steps only. clamp_limits keeps every axis under the dog-folder recommendation.
-        limits = clamp_limits({"forward_m_s": 0.2, "side_m_s": 0.1, "yaw_rad_s": 0.4, "step_s": 1.0})
+        limits = clamp_limits({"forward_m_s": 0.3, "side_m_s": 0.2, "yaw_rad_s": 0.6, "step_s": 1.0})
         dog = EthernetDogLink(run_dir / "dog", armed=args.arm_dog, fake=args.dog == "sim", ip=args.dog_ip,
                               limits=limits)
     settings = Settings(

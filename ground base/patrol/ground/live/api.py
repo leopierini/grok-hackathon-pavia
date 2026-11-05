@@ -9,7 +9,7 @@ single WebRTC slot. Peers come from the environment:
     GROUND_LIVE_DOG_IP  default 192.168.123.161
     GROUND_LIVE_ARM_DOG 1 to allow stand and operator steps (halt always works)
     GROUND_LIVE_GROK    real | fake             (default real; key from ~/.config/patrol/xai.env)
-    GROUND_LIVE_TAKEOFF 1 to let Start patrol send takeoff
+    GROUND_LIVE_TAKEOFF 0 to leave takeoff to the pilot (default 1: Start patrol takes off)
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ class LiveController:
             "dog_ip": e.get("GROUND_LIVE_DOG_IP", "192.168.123.161"),
             "arm_dog": _flag(e, "GROUND_LIVE_ARM_DOG"),
             "grok": e.get("GROUND_LIVE_GROK", "real"),
-            "takeoff": _flag(e, "GROUND_LIVE_TAKEOFF"),
+            "takeoff": e.get("GROUND_LIVE_TAKEOFF", "1").strip().lower() in {"1", "true", "yes", "on"},
         }
 
     @property
@@ -74,7 +74,8 @@ class LiveController:
         run_dir.mkdir(parents=True, exist_ok=True)
         dog = None
         if cfg["dog"] != "none":
-            limits = clamp_limits({"forward_m_s": 0.2, "side_m_s": 0.1, "yaw_rad_s": 0.4, "step_s": 1.0})
+            # Dog-folder recommendation ceiling (no extra Ground scale-down); the dog adapter keeps its own caps.
+            limits = clamp_limits({"forward_m_s": 0.3, "side_m_s": 0.2, "yaw_rad_s": 0.6, "step_s": 1.0})
             dog = EthernetDogLink(run_dir / "dog", armed=cfg["arm_dog"], fake=cfg["dog"] == "sim",
                                   ip=cfg["dog_ip"], limits=limits)
         self.mission = LiveMission(drone=DroneHttp(cfg["drone"]), dog=dog, grok=grok, run_dir=run_dir,
@@ -83,11 +84,29 @@ class LiveController:
         self.error = None
         return {"ok": True, "detail": "Live mission connected. Nothing moves in standby."}
 
+    async def auto_start(self, dog_busy: bool) -> dict[str, Any]:
+        """Home Start patrol: connect (or replace a finished/halted run) and run the whole demo."""
+        mission = self.mission
+        if mission is not None and (mission.halt_latched or mission.phase in {"done", "stopped"}):
+            self.mission = None
+            await mission.close()
+        if self.mission is None:
+            connected = await self.connect(dog_busy)
+            if connected.get("ok") is not True:
+                return connected
+        assert self.mission is not None
+        return await self.mission.start(takeoff=True)
+
+    async def stop(self) -> dict[str, Any]:
+        if self.mission is None:
+            return {"ok": False, "detail": "Live mission is not connected."}
+        return await self.mission.stop()
+
     async def disconnect(self) -> dict[str, Any]:
         mission = self.mission
         if mission is None:
             return {"ok": True, "detail": "Not connected."}
-        if mission.phase in {"patrol", "detected", "tracking"}:
+        if mission.phase in {"takeoff", "patrol", "detected", "approach", "engaged", "finishing"}:
             return {"ok": False, "detail": "Stop patrol before disconnecting."}
         self.mission = None
         await mission.close()
@@ -143,7 +162,7 @@ def mount_live(app: FastAPI, controller: LiveController, dog_busy: Any) -> None:
             return mission
         data = await body(request)
         if action == "start":
-            return await mission.start(takeoff=data.get("takeoff") is True)
+            return await controller.auto_start(bool(dog_busy()))
         if action == "stop":
             return await mission.stop()
         if action == "dog_stand":
