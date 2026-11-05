@@ -129,6 +129,7 @@ class LiveMission:
         self.last_spoken = 0.0
         self.track_origin_yaw: float | None = None
         self.track_nudges = 0
+        self._budget_noted = False
         self.frame_counter = 0
         self._tasks: list[asyncio.Task[Any]] = []
         self._loops: list[asyncio.Task[Any]] = []
@@ -358,6 +359,7 @@ class LiveMission:
         self.emit("drone_command", "drone", "hover sent: drone holds position", action="hover", result=hover)
         yaw = self.drone_state.get("yaw")
         self.track_origin_yaw = float(yaw) if isinstance(yaw, (int, float)) else None
+        self._budget_noted = False
         self._tasks.append(asyncio.create_task(self._dog_alert(), name="dog-alert"))
         self._tasks.append(asyncio.create_task(self._dog_vision_loop(), name="dog-vision"))
         self._set_phase("tracking", "Drone tracks the person with bounded yaw. Dog camera checks with Grok.")
@@ -375,7 +377,9 @@ class LiveMission:
             if (offset > 0 and turned >= self.settings.track_budget_deg) or (
                 offset < 0 and turned <= -self.settings.track_budget_deg
             ):
-                self.emit("track_budget", "drone", "Yaw budget reached; drone holds.", turned_deg=turned)
+                if not self._budget_noted:
+                    self._budget_noted = True
+                    self.emit("track_budget", "drone", "Yaw budget reached; drone holds.", turned_deg=turned)
                 return
         if self.drone_state.get("state") != "airborne":
             self.emit("track_skipped", "drone", "Person off-centre but the drone is not airborne; no nudge.",
