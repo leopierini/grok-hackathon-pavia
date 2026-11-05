@@ -8,11 +8,14 @@ and the mission pad id.
 
 from __future__ import annotations
 
+import os
 import socket
 import threading
 import time
 
-TELLO_IP = "192.168.10.1"
+# AP mode is 192.168.10.1. A Tello EDU in station mode (joined to a router with `ap`)
+# gets a DHCP address: set TELLO_IP to it so the laptop keeps its internet link.
+TELLO_IP = os.environ.get("TELLO_IP", "").strip() or "192.168.10.1"
 TELLO_PORT = 8889
 LOCAL_PORT = 9000
 STATE_PORT = 8890

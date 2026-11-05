@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ground Live Console</title>
+<style>
+  :root { --bg:#0e1116; --panel:#171b22; --line:#2a313c; --text:#e6e9ee; --muted:#8b95a5;
+          --ok:#3fb950; --warn:#d29922; --bad:#f85149; --acc:#58a6ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 -apple-system,system-ui,sans-serif; }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  h1 { font-size:16px; margin:0 12px 0 0; }
+  .phase { padding:4px 10px; border-radius:12px; background:#222a35; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  .phase.patrol { background:#1f3a5f; } .phase.detected,.phase.tracking { background:#5f1f1f; }
+  .phase.halted { background:var(--bad); } .phase.stopped { background:#2d333b; }
+  button { font:inherit; border:1px solid var(--line); background:#222a35; color:var(--text); padding:7px 14px; border-radius:6px; cursor:pointer; }
+  button:hover { border-color:var(--acc); }
+  button.go { background:#1f6f3a; } button.stop { background:#6b4e16; }
+  button.halt { background:var(--bad); font-weight:700; padding:7px 22px; margin-left:auto; }
+  main { display:grid; grid-template-columns: 1fr 1fr 360px; gap:12px; padding:12px 16px; }
+  @media (max-width: 1100px) { main { grid-template-columns:1fr; } }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px; min-width:0; }
+  .card h2 { font-size:13px; margin:0 0 8px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; display:flex; justify-content:space-between; }
+  .cam { position:relative; background:#000; aspect-ratio:4/3; border-radius:6px; overflow:hidden; }
+  .cam img { width:100%; height:100%; object-fit:contain; display:block; }
+  .cam .box { position:absolute; border:3px solid var(--bad); border-radius:3px; display:none; }
+  .cam .tag { position:absolute; left:6px; top:6px; background:#000a; padding:2px 6px; border-radius:4px; font-size:12px; }
+  dl { display:grid; grid-template-columns:max-content 1fr; gap:2px 10px; margin:8px 0 0; font-size:13px; }
+  dt { color:var(--muted); } dd { margin:0; overflow-wrap:anywhere; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--muted); margin-right:6px; }
+  .dot.up { background:var(--ok); } .dot.down { background:var(--bad); } .dot.connecting { background:var(--warn); }
+  #log { height:420px; overflow:auto; font:12px/1.35 ui-monospace,Menlo,monospace; }
+  #log div { padding:3px 0; border-bottom:1px solid #1f242c; }
+  #log .k { color:var(--acc); } #log .t { color:var(--muted); }
+  #log .hot { color:#ffb4ae; }
+  .alert { background:#3b1f1f; border:1px solid #6e2b2b; border-radius:6px; padding:8px; margin-top:8px; display:none; }
+  .row { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  input[type=text] { flex:1; min-width:120px; background:#0e1116; border:1px solid var(--line); color:var(--text); border-radius:6px; padding:6px; font:inherit; }
+  .muted { color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Ground — live museum patrol</h1>
+  <span id="phase" class="phase">idle</span>
+  <span id="incident" class="muted"></span>
+  <button class="go" onclick="post('/api/start',{})">Start patrol</button>
+  <button class="go" onclick="post('/api/start',{takeoff:true})" title="Only if the service runs with --allow-takeoff">Start + takeoff</button>
+  <button class="stop" onclick="post('/api/stop',{})">Stop patrol (land + dog lies down)</button>
+  <button class="halt" onclick="halt()">HALT (Q)</button>
+</header>
+<main>
+  <section class="card">
+    <h2><span>Drone camera</span><span id="droneLink"></span></h2>
+    <div class="cam"><img id="droneImg" alt="drone camera"><div class="box" id="droneBox"></div><span class="tag" id="droneTag">—</span></div>
+    <dl id="droneDl"></dl>
+    <div class="row"><label class="muted"><input type="checkbox" id="track" onchange="post('/api/settings',{track:this.checked})"> drone yaw-tracks the person (bounded)</label></div>
+  </section>
+  <section class="card">
+    <h2><span>Dog camera</span><span id="dogLink"></span></h2>
+    <div class="cam"><img id="dogImg" alt="dog camera"><div class="box" id="dogBox"></div><span class="tag" id="dogTag">—</span></div>
+    <dl id="dogDl"></dl>
+    <div class="row">
+      <button onclick="post('/api/dog/stand',{})">Stand</button>
+      <button onclick="step('left')">⟲ Turn L</button><button onclick="step('forward')">↑ Step</button>
+      <button onclick="step('back')">↓ Back</button><button onclick="step('right')">⟳ Turn R</button>
+    </div>
+    <div class="row"><input type="text" id="sayText" placeholder="Say on the dog speaker…"><button onclick="say()">Speak</button></div>
+    <p class="muted">Dog steps are operator-only, one bounded segment each. The mission never walks the dog.</p>
+  </section>
+  <section class="card">
+    <h2><span>Grok &amp; events</span><span id="grokState" class="muted"></span></h2>
+    <div class="alert" id="alert"></div>
+    <dl id="grokDl"></dl>
+    <div id="log"></div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+async function post(path, body) {
+  try {
+    const r = await fetch(path, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const j = await r.json(); if (j && j.ok === false) note('refused: ' + (j.detail || ''));
+    return j;
+  } catch (e) { note('request failed: ' + e); }
+}
+function halt() { post('/api/halt', {}); }
+function step(d) { post('/api/dog/step', {direction:d}); }
+function say() { const t = $('sayText').value.trim(); if (t) post('/api/dog/say', {text:t}); }
+document.addEventListener('keydown', e => { if ((e.key === 'q' || e.key === 'Q') && e.target.tagName !== 'INPUT') halt(); });
+function note(text) { addLog({ts:new Date().toISOString(), kind:'console', component:'ui', detail:text}); }
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+const HOT = new Set(['drone_target_acquired','dog_target_acquired','alert','dog_voice','halt','halt_sent','drone_link_lost','dog_alert']);
+function addLog(ev) {
+  const div = document.createElement('div');
+  div.innerHTML = `<span class="t">${esc((ev.ts||'').slice(11,23))}</span> <span class="k">${esc(ev.component)}/${esc(ev.kind)}</span> <span class="${HOT.has(ev.kind)?'hot':''}">${esc(ev.detail)}</span>`;
+  $('log').prepend(div);
+  while ($('log').children.length > 300) $('log').lastChild.remove();
+}
+function dl(el, rows) { el.innerHTML = rows.map(([k,v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join(''); }
+function link(el, state) { el.innerHTML = `<span class="dot ${esc(state)}"></span>${esc(state)}`; }
+function box(el, reading) {
+  const b = reading && reading.target_state === 'person_visible' ? reading.box_xyxy_norm : null;
+  if (!b) { el.style.display = 'none'; return; }
+  Object.assign(el.style, {display:'block', left:(b[0]*100)+'%', top:(b[1]*100)+'%', width:((b[2]-b[0])*100)+'%', height:((b[3]-b[1])*100)+'%'});
+}
+function tag(el, reading) {
+  if (!reading) { el.textContent = 'no Grok reading yet'; return; }
+  const c = reading.confidence == null ? '' : ` ${(reading.confidence*100).toFixed(0)}%`;
+  el.textContent = `${reading.target_state}${c} · ${reading.latency_ms ?? '?'} ms`;
+}
+function render(s) {
+  $('phase').textContent = s.phase; $('phase').className = 'phase ' + s.phase;
+  $('incident').textContent = s.incident ? `${s.incident.id} · detected ${s.incident.detected_at.slice(11,19)}Z` : '';
+  const d = s.drone || {};
+  link($('droneLink'), d.link);
+  dl($('droneDl'), [['flight', d.state], ['battery', d.battery == null ? '—' : d.battery + '%' + (d.battery_low ? ' LOW' : '')],
+                    ['height', d.h == null ? '—' : d.h + ' cm'], ['yaw', d.yaw], ['video', d.video], ['deadman', d.deadman ? 'tripped' : 'ok'],
+                    ['tracking', `${s.tracking.enabled ? 'on' : 'off'} · ${s.tracking.nudges} nudges`]]);
+  $('track').checked = !!s.tracking.enabled;
+  const g = s.dog || {};
+  link($('dogLink'), g.link);
+  dl($('dogDl'), [['mode', g.mode + (g.armed ? ' (armed)' : ' (not armed: speak + halt only)')], ['standing', g.standing], ['stationary', g.stationary],
+                  ['avoidance', g.avoidance_enabled], ['motion lock', g.motion_lock || 'none'], ['frame age', g.frame_age_s == null ? '—' : g.frame_age_s + ' s'],
+                  ['error', g.error || g.frame_error || '']]);
+  const r = s.readings || {};
+  box($('droneBox'), r.drone); tag($('droneTag'), r.drone);
+  box($('dogBox'), r.dog); tag($('dogTag'), r.dog);
+  const k = s.grok || {};
+  $('grokState').textContent = `${k.name} · ${k.calls} calls · ${k.errors} errors${k.in_flight ? ' · thinking…' : ''}`;
+  dl($('grokDl'), [['drone', r.drone ? r.drone.reason : '—'], ['dog', r.dog ? r.dog.reason : '—'], ['last error', k.last_error || '']]);
+  const inc = s.incident;
+  if (inc && inc.alert) { $('alert').style.display = 'block'; $('alert').innerHTML = `<b>ALERT</b> ${esc(inc.alert)}<br><span class="muted">spoken: ${esc((inc.spoken||[]).join(' / ') || '—')}</span>`; }
+  else $('alert').style.display = 'none';
+}
+let first = true;
+async function poll() {
+  try {
+    const s = await (await fetch('/api/state')).json();
+    if (first) { (s.events || []).forEach(addLog); first = false; }
+    render(s);
+  } catch (e) {}
+}
+setInterval(poll, 500); poll();
+const es = new EventSource('/api/events');
+es.onmessage = m => { try { const ev = JSON.parse(m.data); if (!first) addLog(ev); } catch (e) {} };
+function refresh(img, cam) {
+  const next = new Image();
+  next.onload = () => { img.src = next.src; setTimeout(() => refresh(img, cam), 150); };
+  next.onerror = () => setTimeout(() => refresh(img, cam), 700);
+  next.src = `/api/frame/${cam}.jpg?t=${Date.now()}`;
+}
+refresh($('droneImg'), 'drone'); refresh($('dogImg'), 'dog');
+</script>
+</body>
+</html>

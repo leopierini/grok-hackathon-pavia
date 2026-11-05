@@ -184,6 +184,12 @@ class EthernetDogLink:
             }
         return await self._roundtrip({"op": "halt"})
 
+    async def request(self, op: str, timeout: float = 30, **fields: Any) -> dict[str, Any]:
+        """One bridge op (``status``, ``stand``, ``stop``, ``say``). Motion limits stay in the bridge."""
+        if op not in {"status", "stand", "stop", "say"}:
+            raise LinkError(f"dog bridge op {op!r} is not allowed here")
+        return await self._roundtrip({"op": op, **fields}, timeout=timeout)
+
     async def frame(self) -> dict[str, Any]:
         parsed = await self._roundtrip({"op": "frame"}, timeout=5)
         raw = parsed.pop("jpeg_b64", None)
