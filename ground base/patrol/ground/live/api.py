@@ -9,6 +9,7 @@ single WebRTC slot. Peers come from the environment:
     GROUND_LIVE_DOG_IP  default 192.168.123.161
     GROUND_LIVE_ARM_DOG 1 to allow stand and operator steps (halt always works)
     GROUND_LIVE_GROK    real | fake             (default real; key from ~/.config/patrol/xai.env)
+    GROUND_LIVE_TARGET  who to look for, e.g. "a person wearing a red cap" (ignore everyone else)
     GROUND_LIVE_TAKEOFF 0 to leave takeoff to the pilot (default 1: Start patrol takes off)
 """
 
@@ -49,6 +50,7 @@ class LiveController:
             "dog_ip": e.get("GROUND_LIVE_DOG_IP", "192.168.123.161"),
             "arm_dog": _flag(e, "GROUND_LIVE_ARM_DOG"),
             "grok": e.get("GROUND_LIVE_GROK", "real"),
+            "target": e.get("GROUND_LIVE_TARGET", "").strip() or "the person standing or walking in the open floor area",
             "takeoff": e.get("GROUND_LIVE_TAKEOFF", "1").strip().lower() in {"1", "true", "yes", "on"},
         }
 
@@ -65,7 +67,7 @@ class LiveController:
         if cfg["dog"] != "none" and dog_busy:
             return {"ok": False, "detail": "Close the Mission page dog test or dog view first. The dog allows one connection."}
         try:
-            grok = RealGrok() if cfg["grok"] == "real" else ScriptedGrok()
+            grok = RealGrok(cfg["target"]) if cfg["grok"] == "real" else ScriptedGrok()
         except Exception as exc:  # noqa: BLE001
             self.error = str(exc)
             return {"ok": False, "detail": f"Grok refused: {exc}"}

@@ -21,7 +21,7 @@ type LiveState = {
   connected: boolean;
   phase: string;
   error?: string | null;
-  config: { drone: string; dog: string; arm_dog: boolean; grok: string; takeoff: boolean };
+  config: { drone: string; dog: string; arm_dog: boolean; grok: string; takeoff: boolean; target?: string };
   halt_latched?: boolean;
   incident?: { id: string; detected_at: string; alert: string | null; spoken: string[]; dog_reading: Reading | null } | null;
   drone?: Record<string, unknown> & { link?: string };
@@ -164,6 +164,7 @@ export function LivePatrol() {
           <button type="button" className={`${button} bg-warn-bg text-warn`} disabled={!connected} onClick={() => act("stop")}>Stop patrol</button>
           <HaltButton onHalt={halt} />
         </div>
+        <p className="w-full text-sm">Looking for: <span className="font-semibold">{state?.config.target ?? "—"}</span></p>
         {note ? <p className="w-full text-sm text-muted">{note}</p> : null}
         {state?.error ? <p className="w-full text-sm text-bad">{state.error}</p> : null}
       </header>

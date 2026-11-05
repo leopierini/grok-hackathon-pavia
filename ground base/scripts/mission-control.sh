@@ -7,6 +7,7 @@
 #   TELLO_IP=192.168.5.137 scripts/mission-control.sh real        real Tello + dog on Ethernet + Grok
 #   TELLO_IP=192.168.5.137 scripts/mission-control.sh real-nodog  real Tello + Grok, no dog
 #
+# Who to look for: GROUND_LIVE_TARGET="a person wearing a red cap" scripts/mission-control.sh real
 # Pilot page (takeoff / land, always available): http://127.0.0.1:8766  (sim: 8799)
 # Ctrl+C stops everything; the drone server lands the aircraft on exit.
 set -euo pipefail

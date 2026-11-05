@@ -58,8 +58,9 @@ def load_api_key(environ: Mapping[str, str] | None = None, key_file: Path = KEY_
 def presence_prompt(camera: str, target: str) -> str:
     hint = _CAMERA_HINT.get(camera, "")
     return (
-        f"{hint} Target: {target}. Is the target person visible? "
-        "If visible, give the tightest box around that person. "
+        f"{hint} Target: {target}. Answer person_visible only if THAT target is visible; "
+        "other people who do not match the target do not count (answer not_visible). "
+        "If visible, give the tightest box around the target person only. "
         "In reason, describe the person and scene in one plain sentence "
         "(clothing, posture, what they are doing)."
     )
