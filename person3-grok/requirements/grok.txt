@@ -1,0 +1,3 @@
+# Presence and fake reasoner use the Python standard library only.
+# Real xAI calls are not wired here. Do not put an API key in this file.
+pytest>=8

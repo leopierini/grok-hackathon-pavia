@@ -1,0 +1,2 @@
+# Vision v2 decisions are built locally. Pillow is not required for the fake path.
+pytest>=8

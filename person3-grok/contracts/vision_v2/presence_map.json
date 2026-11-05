@@ -1,0 +1,23 @@
+{
+  "prompt_version": "patrol-presence-v1",
+  "dog_stage": "dog_approach",
+  "dog_camera": "front",
+  "drone_stage": "drone_track",
+  "drone_camera": "downward",
+  "state_to_suggested_action": {
+    "person_visible": {
+      "dog_approach": "approach",
+      "drone_track": "hold"
+    },
+    "not_visible": "stop",
+    "uncertain": "review",
+    "timeout": "review"
+  },
+  "bridge_actions": [
+    "play_warning",
+    "follow",
+    "stop",
+    "return_home",
+    "land_on_dog"
+  ]
+}
