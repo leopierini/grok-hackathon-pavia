@@ -204,6 +204,89 @@ def test_dog_acquire_keeps_target_001_and_switches_vision() -> None:
     assert "track_mismatch" not in assessed.trace
 
 
+def test_rehearsal_prompt_does_not_use_the_presence_labels() -> None:
+    request = _request("drone_search", "downward.json", track=None)
+    decision = assess_frame(
+        request,
+        transport=_transport({"reply": _http_reply(state="not_visible", box=None)}),
+        environ={"XAI_API_KEY": "test-key"},
+    )
+    payload = decision["payload"]
+    assert isinstance(payload, dict)
+    assert payload["prompt_version"] == "patrol-demo-v2.0"
+    assert payload["suggested_action"] == "review"
+
+
+def test_presence_prompt_maps_still_there_gone_and_unsure() -> None:
+    gone_request = _request("dog_approach", "front.json", track="target-001")
+    gone_payload = gone_request["payload"]
+    assert isinstance(gone_payload, dict)
+    gone_payload["prompt_version"] = "patrol-presence-v1"
+    gone = assess_frame(
+        gone_request,
+        transport=_transport({"reply": _http_reply(state="not_visible", box=None)}),
+        environ={"XAI_API_KEY": "test-key"},
+    )
+    gone_body = gone["payload"]
+    assert isinstance(gone_body, dict)
+    assert gone_body["target_state"] == "not_visible"
+    assert gone_body["suggested_action"] == "stop"
+    assert gone_body["image_direction"] == "unknown"
+    assert gone_body["detections"] == []
+    assessed = assess(gone, gone_request, current_track_id="target-001", current_camera_epoch=1)
+    assert assessed.status == "ok"
+    assert assessed.proposal is not None
+    proposal = assessed.proposal["payload"]
+    assert isinstance(proposal, Mapping)
+    assert proposal["action"] == "stop"
+    assert proposal["target_component"] == "dog"
+
+    visible_request = _request("dog_approach", "front.json", track="target-001")
+    visible_payload = visible_request["payload"]
+    assert isinstance(visible_payload, dict)
+    visible_payload["prompt_version"] = "patrol-presence-v1"
+    visible = assess_frame(
+        visible_request,
+        transport=_transport({}),
+        environ={"XAI_API_KEY": "test-key"},
+    )
+    visible_body = visible["payload"]
+    assert isinstance(visible_body, dict)
+    assert visible_body["suggested_action"] == "approach"
+    assert visible_body["detections"][0]["track_id"] == "target-001"
+
+    hold_request = _request("drone_track", "downward.json", track="target-001")
+    hold_payload = hold_request["payload"]
+    assert isinstance(hold_payload, dict)
+    hold_payload["prompt_version"] = "patrol-presence-v1"
+    holding = assess_frame(
+        hold_request,
+        transport=_transport({}),
+        environ={"XAI_API_KEY": "test-key"},
+    )
+    holding_body = holding["payload"]
+    assert isinstance(holding_body, dict)
+    assert holding_body["suggested_action"] == "hold"
+
+    unsure_request = _request("dog_approach", "front.json", track="target-001")
+    unsure_payload = unsure_request["payload"]
+    assert isinstance(unsure_payload, dict)
+    unsure_payload["prompt_version"] = "patrol-presence-v1"
+    unsure = assess_frame(
+        unsure_request,
+        transport=_transport({"reply": _http_reply(state="uncertain", box=None)}),
+        environ={"XAI_API_KEY": "test-key"},
+    )
+    unsure_body = unsure["payload"]
+    assert isinstance(unsure_body, dict)
+    assert unsure_body["suggested_action"] == "review"
+    withheld = assess(
+        unsure, unsure_request, current_track_id="target-001", current_camera_epoch=1
+    )
+    assert withheld.proposal is None
+    assert withheld.motion_authorized is False
+
+
 def test_named_model_is_sent_and_motor_text_is_removed() -> None:
     seen: dict[str, object] = {"reply": _http_reply(reason="takeoff")}
     request = _request(
