@@ -484,6 +484,8 @@ class LiveMission:
         if self.dog is None or self.dog_state.get("link") != "up":
             return {"ok": False, "detail": "dog link is down"}
         async with self._dog_io:
+            if self.halt_latched:  # halt may have landed while this step waited
+                return {"ok": False, "detail": "Halt is latched."}
             result = await self._safe(self.dog.move_segment(dict(segment)), "dog", f"step {direction}")
         self.emit("dog_step", "dog", f"Operator step {direction}: {result.get('detail')}", segment=segment,
                   result={k: v for k, v in result.items() if k != "status"})
@@ -514,16 +516,8 @@ class LiveMission:
     async def _dog_halt_now(self) -> Json:
         if self.dog is None:
             return {"ok": False, "detail": "no dog link"}
-        # Halt does not queue behind a frame or a step: the bridge answers in order,
-        # and every bridge op is short. Skip the lock only if it is held too long.
-        try:
-            await asyncio.wait_for(self._dog_io.acquire(), 1.5)
-            try:
-                return await self.dog.halt()
-            finally:
-                self._dog_io.release()
-        except TimeoutError:
-            return await self.dog.halt()
+        # No mission lock: the link writes halt at once and the bridge cancels any running op.
+        return await self.dog.halt()
 
     # ---------------------------------------------------------------- grok
 

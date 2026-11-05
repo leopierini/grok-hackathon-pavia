@@ -13,6 +13,7 @@ from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 
 from patrol.ground.kernel.paths import repo_root
+from patrol.ground.live.api import LiveController, mount_live
 from patrol.ground.operator.artifacts import ArtifactError, resolve_jpeg
 from patrol.ground.operator.coverage import coverage_payload
 from patrol.ground.operator.host import Host
@@ -30,6 +31,7 @@ def create_app(token: str, runs_root: Path) -> FastAPI:
     app = FastAPI(title="Ground Mission Control", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.host = Host(runs_root)
     app.state.token = token
+    app.state.live = LiveController(runs_root)
 
     @app.middleware("http")
     async def authorize(request: Request, call_next: Any) -> Response:
@@ -82,6 +84,8 @@ def create_app(token: str, runs_root: Path) -> FastAPI:
         except WebSocketDisconnect:
             return
 
+    mount_live(app, app.state.live, lambda: app.state.host.dog_link is not None)
+
     @app.get("/api/v1/session")
     async def session(request: Request) -> dict[str, Any]:
         return {"ok": True, "snapshot": request.app.state.host.snapshot}
@@ -97,6 +101,15 @@ def create_app(token: str, runs_root: Path) -> FastAPI:
         if isinstance(body, JSONResponse):
             return body
         key = request.headers.get("idempotency-key")
+        live: LiveController = request.app.state.live
+        if name == "halt":
+            # The header Halt also halts the live mission, first and without waiting.
+            asyncio.create_task(live.halt())
+        if name in {"dog_test", "dog_view"} and live.owns_dog:
+            return JSONResponse(
+                _fail("rejected", "The live mission holds the dog link. Disconnect it on the Live screen first."),
+                status_code=409,
+            )
         result = await request.app.state.host.act(name, body, key)
         return JSONResponse(result, status_code=int(result.get("status", 200)))
 

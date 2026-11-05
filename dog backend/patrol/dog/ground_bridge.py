@@ -22,7 +22,10 @@ Requests (``op``):
 - ``lidar``   the LiDAR panel view.
 - ``close``   disconnect and exit.
 
-Halt is always accepted, armed or not. Motion is refused unless ``--arm``.
+Halt is always accepted, armed or not, and never waits: it cancels the running
+request, drops queued ones, then rests the dog. Motion is refused unless ``--arm``.
+Replies echo the request ``id``. If stdin closes without ``close`` (Ground died),
+the bridge lies the dog down before it disconnects.
 """
 
 from __future__ import annotations
@@ -89,6 +92,8 @@ class Bridge:
         self.armed = armed
         self.halted = False
         self.volume_set = False
+        self.home_set = False
+        self.cancel = Event()
 
     async def handle(self, msg: dict[str, Any]) -> dict[str, Any]:
         op = msg.get("op")
@@ -141,11 +146,13 @@ class Bridge:
         refused = self._refuse_motion()
         if refused:
             return {"op": "stand", "ok": False, "sent": False, "detail": refused}
-        try:
-            self.dog.set_home()  # fence centred where Ground first stood the dog
-        except AdapterError:
-            pass
-        ctx = RunContext(mission_id="ground", deadline_monotonic=time.monotonic() + 15, cancel=Event())
+        if not self.home_set:
+            try:
+                self.dog.set_home()  # fence centred where Ground FIRST stood the dog, never moved later
+                self.home_set = True
+            except AdapterError:
+                pass
+        ctx = RunContext(mission_id="ground", deadline_monotonic=time.monotonic() + 15, cancel=self.cancel)
         st = await self.dog.prepare(ctx)
         return {"op": "stand", "ok": True, "sent": True, "status": status_of(self.dog, st)}
 
@@ -172,7 +179,8 @@ class Bridge:
                 sent += 1
                 await asyncio.sleep(MOVE_PERIOD_S)
         finally:
-            await self.dog.stop_move()
+            if not self.halted:  # halt's rest() sends StopMove itself, then StandDown
+                await self.dog.stop_move()
         return {
             "op": "move",
             "ok": True,
@@ -245,11 +253,37 @@ async def run(args: argparse.Namespace) -> int:
     )
     queue: asyncio.Queue[str | None] = asyncio.Queue()
     reader = asyncio.create_task(_stdin_lines(queue))
+    work: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+    current: dict[str, asyncio.Task[dict[str, Any]] | None] = {"task": None}
+
+    async def worker() -> None:
+        # Ordinary requests run one at a time, in order. Halt never waits here.
+        while True:
+            msg = await work.get()
+            if msg is None:
+                return
+            if bridge.halted and msg.get("op") in {"move", "stand"}:
+                emit(_reply(msg, {"op": msg.get("op"), "ok": False, "sent": False, "detail": "halt is latched"}))
+                continue
+            op_task = asyncio.create_task(bridge.handle(msg))
+            current["task"] = op_task
+            try:
+                reply = await op_task
+            except asyncio.CancelledError:
+                if not op_task.cancelled():
+                    raise
+                reply = {"op": msg.get("op"), "ok": False, "sent": False, "detail": "cancelled by halt"}
+            finally:
+                current["task"] = None
+            emit(_reply(msg, reply))
+
+    worker_task = asyncio.create_task(worker())
+    clean_close = False
     try:
         while True:
             line = await queue.get()
             if line is None:
-                break
+                break  # Ground went away without "close": lie the dog down below
             text = line.strip()
             if not text:
                 continue
@@ -262,15 +296,51 @@ async def run(args: argparse.Namespace) -> int:
                 emit({"ok": False, "detail": "request must be an object"})
                 continue
             if msg.get("op") == "close":
+                clean_close = True
                 break
-            emit(await bridge.handle(msg))
+            if msg.get("op") == "halt":
+                # Out of band: latch, cancel the running op, drop queued ops, then rest.
+                bridge.halted = True
+                bridge.cancel.set()
+                running = current["task"]
+                if running is not None:
+                    running.cancel()
+                while not work.empty():
+                    queued = work.get_nowait()
+                    if queued is not None:
+                        emit(_reply(queued, {"op": queued.get("op"), "ok": False, "sent": False,
+                                             "detail": "dropped by halt"}))
+                emit(_reply(msg, await bridge.handle(msg)))
+                continue
+            await work.put(msg)
     finally:
         reader.cancel()
+        running = current["task"]
+        if not clean_close:
+            bridge.halted = True
+            bridge.cancel.set()
+            if running is not None:
+                running.cancel()
+            try:
+                await asyncio.wait_for(dog.rest(), 8)
+            except Exception:  # noqa: BLE001
+                pass
+        await work.put(None)
+        try:
+            await asyncio.wait_for(worker_task, 5)
+        except Exception:  # noqa: BLE001
+            worker_task.cancel()
         try:
             await dog.close()
         except Exception:  # noqa: BLE001
             pass
     return 0
+
+
+def _reply(msg: dict[str, Any], reply: dict[str, Any]) -> dict[str, Any]:
+    if "id" in msg:
+        reply = {**reply, "id": msg["id"]}
+    return reply
 
 
 def main(argv: list[str] | None = None) -> int:

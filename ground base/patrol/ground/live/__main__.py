@@ -17,6 +17,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from patrol.ground.dog_limits import clamp_limits
 from patrol.ground.dog_link import EthernetDogLink
 from patrol.ground.live.drone import DroneHttp
 from patrol.ground.live.grok import RealGrok, ScriptedGrok
@@ -49,7 +50,10 @@ def main(argv: list[str] | None = None) -> int:
     run_dir.mkdir(parents=True, exist_ok=True)
     dog = None
     if args.dog != "none":
-        dog = EthernetDogLink(run_dir / "dog", armed=args.arm_dog, fake=args.dog == "sim", ip=args.dog_ip)
+        # Operator steps only. clamp_limits keeps every axis under the dog-folder recommendation.
+        limits = clamp_limits({"forward_m_s": 0.2, "side_m_s": 0.1, "yaw_rad_s": 0.4, "step_s": 1.0})
+        dog = EthernetDogLink(run_dir / "dog", armed=args.arm_dog, fake=args.dog == "sim", ip=args.dog_ip,
+                              limits=limits)
     settings = Settings(
         track=not args.no_track,
         allow_takeoff=args.allow_takeoff,

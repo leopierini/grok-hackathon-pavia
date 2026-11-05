@@ -113,7 +113,10 @@ class EthernetDogLink:
         self.limits = default_limits() if limits is None else dict(limits)
         self.ready: dict[str, Any] | None = None
         self._proc: asyncio.subprocess.Process | None = None
-        self._io = asyncio.Lock()
+        self._io = asyncio.Lock()  # guards writes only; replies are matched by id
+        self._pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
+        self._next_id = 0
+        self._reader: asyncio.Task[None] | None = None
         self._stderr_text = ""
         self._stderr_task: asyncio.Task[None] | None = None
 
@@ -160,6 +163,7 @@ class EthernetDogLink:
                 detail = str(ready.get("detail") or "dog bridge did not connect")
             raise LinkError(detail)
         self.ready = ready
+        self._reader = asyncio.create_task(self._read_replies())
         return ready
 
     async def execute(self, command: Mapping[str, Any]) -> dict[str, Any]:
@@ -201,12 +205,54 @@ class EthernetDogLink:
         return await self._roundtrip({"op": "lidar"}, timeout=5)
 
     async def _roundtrip(self, message: Mapping[str, Any], timeout: float = 30) -> dict[str, Any]:
+        """Send one request and wait for the reply with the same id.
+
+        Writes are serialised; waits are not. A halt is written to the pipe at once,
+        even while a move or a stand is still running in the bridge.
+        """
         if self._proc is None or self._proc.stdin is None or self._proc.stdout is None:
             raise LinkError("dog bridge is not connected")
-        async with self._io:
-            self._proc.stdin.write(json.dumps(message).encode() + b"\n")
-            await self._proc.stdin.drain()
-            return await self._read_json(timeout)
+        self._next_id += 1
+        rid = self._next_id
+        future: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
+        self._pending[rid] = future
+        try:
+            async with self._io:
+                self._proc.stdin.write(json.dumps({**message, "id": rid}).encode() + b"\n")
+                await self._proc.stdin.drain()
+            return await asyncio.wait_for(future, timeout)
+        except TimeoutError as exc:
+            raise LinkError("dog bridge did not send a JSON reply in time") from exc
+        except (BrokenPipeError, ConnectionResetError) as exc:
+            raise LinkError("dog bridge closed its input") from exc
+        finally:
+            self._pending.pop(rid, None)
+
+    async def _read_replies(self) -> None:
+        proc = self._proc
+        if proc is None or proc.stdout is None:
+            return
+        try:
+            while True:
+                line = await proc.stdout.readline()
+                if not line:
+                    break
+                text = line.decode(errors="replace").strip()
+                if not text.startswith("{"):
+                    continue
+                try:
+                    parsed = json.loads(text)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(parsed, dict):
+                    continue
+                future = self._pending.get(parsed.get("id"))  # type: ignore[arg-type]
+                if future is not None and not future.done():
+                    future.set_result(parsed)
+        finally:
+            for future in self._pending.values():
+                if not future.done():
+                    future.set_exception(LinkError("dog bridge closed its output"))
 
     async def _read_json(self, timeout: float) -> dict[str, Any]:
         """Read the next JSON object. The Unitree library also prints status lines."""
@@ -234,23 +280,35 @@ class EthernetDogLink:
                 return parsed
 
     async def close(self) -> None:
+        """Armed: halt (StopMove + soft lie-down) first. Then ask the bridge to disconnect,
+        and kill it only if it does not exit. A killed bridge would leave the last command."""
         proc = self._proc
         if proc is None:
             return
+        if proc.returncode is None and self.armed and self.ready is not None:
+            try:
+                await self._roundtrip({"op": "halt"}, timeout=8)
+            except Exception:  # noqa: BLE001
+                pass
         self._proc = None
         if proc.stdin is not None and proc.returncode is None:
             try:
                 proc.stdin.write(b'{"op":"close"}\n')
+                await proc.stdin.drain()
                 proc.stdin.close()
-            except OSError:
+            except (OSError, RuntimeError):
                 pass
         if proc.returncode is None:
             try:
-                proc.kill()
-            except ProcessLookupError:
-                pass
-        # Waiting on the process can stall the operator after the dog has already exited.
-        asyncio.create_task(_reap(proc))
+                await asyncio.wait_for(proc.wait(), 6)
+            except TimeoutError:
+                try:
+                    proc.kill()
+                except ProcessLookupError:
+                    pass
+                asyncio.create_task(_reap(proc))
+        if self._reader is not None:
+            self._reader.cancel()
 
     async def _drain_stderr(self) -> None:
         proc = self._proc

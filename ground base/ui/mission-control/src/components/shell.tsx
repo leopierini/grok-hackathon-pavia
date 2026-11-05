@@ -35,6 +35,9 @@ export function Shell({ children }: { children: ReactNode }) {
           ) : (
             <p className="text-sm font-semibold">All screens</p>
           )}
+          <Link href="/live" className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#E85A67] px-4 text-sm font-bold text-white">
+            Live patrol
+          </Link>
           <Link href="/screens" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-surface px-3 text-sm font-semibold">
             <LayoutGrid className="h-4 w-4" aria-hidden />
             All screens
